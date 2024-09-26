@@ -58,12 +58,12 @@ options.target_number_of_last_periods_of_hold_phase_to_process = 300;
 
 % Read representative fundamental frequency for configuration and set as
 % nominal
-modes = readmatrix([BASEFOLDER '/config' num2str(CONFIG) '/Config' ...
+modes = readmatrix([BASEFOLDER 'config' num2str(CONFIG) '/Config' ...
     num2str(CONFIG) '_linear_complex_modes']);
 options.nominalFreq = modes(end,1);
 
 % Generate data and step file name
-tmp = [BASEFOLDER '/config' num2str(CONFIG) '/Config' ...
+tmp = [BASEFOLDER 'config' num2str(CONFIG) '/Config' ...
     num2str(CONFIG) '_ECT'];
 dataFileName = [tmp '_' num2str(LEVEL) 'm_s2'];
 stepFileName = [tmp '_phase_steps'];
