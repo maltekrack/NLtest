@@ -50,7 +50,7 @@ options.target_number_of_last_periods_of_hold_phase_to_process = 500;
 
 % Read representative fundamental frequency for configuration and set
 % as nominal
-modes = readmatrix([BASEFOLDER '/config' num2str(CONFIG) '/Config' ...
+modes = readmatrix([BASEFOLDER 'config' num2str(CONFIG) '/Config' ...
     num2str(CONFIG) '_linear_complex_modes']);
 options.nominalFreq = modes(end,1);
 
@@ -80,7 +80,7 @@ for iRespLev = 1:length(responseLevel_mm)
         ' of ' num2str(length(responseLevel_mm)) '.']);
 
     % Generate data and step file name
-    tmp = [BASEFOLDER '/config' num2str(CONFIG) '/Config' ...
+    tmp = [BASEFOLDER 'config' num2str(CONFIG) '/Config' ...
         num2str(CONFIG) '_RCT'];
     switch CONFIG 
         case 1
