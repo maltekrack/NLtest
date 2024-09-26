@@ -95,6 +95,13 @@
 %     instFreq,exc,         if interpolation is done)
 %     resp,addSens
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This file is part of NLtest available via
+% https://github.com/maltekrack/NLtest.
+% 
+% COPYRIGHT (C) 2024
+%   Malte Krack (malte.krack@ila.uni-stuttgart.de) 
+%   Maren Scheel (maren.scheel@ila.uni-stuttgart.de)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [freq,EXC,RESP,ADDSENS,indPROCESS,...
     time,instFreq,exc,resp,addSens] = ...
     estimateFourierCoefficientsFromSteppedSine(steps,time,instFreq,...
