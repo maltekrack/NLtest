@@ -1,0 +1,10 @@
+INSTRUCTIONS
+
+To test simSAS, it is recommended to use publicly avialable experimental data, and compare with simulation data:
+
+    Download experimental data from http://dx.doi.org/10.18419/darus-2883. The file names are 'Time_VelBeam_RelSliderPos__fex104_ExcLevel14_RelSliderPosStart03.txt' and so on.
+    Put it into a subfolder 'DAT' within the folder containing the main m-files and the 'SRC' folder.
+    Run the 'simulate_FreeSliderModel.m' script. Here you have to select a scenario, labeled after the Figures in reference [1] (see header of m-files). This will save simulation data in the 'DAT' folder.
+    Run the 'simulate_sSIM.m' script. Here you have to select a scenario, labeled after the Figures in reference [1] (see header of m-files). This will save simulation data in the 'DAT' folder.
+    Run the 'illustrate_results.m' script. Here you have to select a scenario, labeled after the Figures in reference [1] (see header of m-files). This requires that experimental and simulation data are available in the 'DAT' folder.
+    Have fun with the tool. Adjust the parameters or the model or the simulation to your needs.
