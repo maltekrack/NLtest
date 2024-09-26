@@ -31,6 +31,14 @@
 % [6] https://doi.org/10.1016/j.ymssp.2022.109170
 % [7] https://doi.org/10.25518/2684-6500.180
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This file is part of NLtest available via
+% https://github.com/maltekrack/NLtest.
+% 
+% COPYRIGHT (C) 2024
+%   Malte Krack (malte.krack@ila.uni-stuttgart.de) 
+%   Maren Scheel (maren.scheel@ila.uni-stuttgart.de)
+%   and the co-authors of [3].
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clearvars;
 close all;
 clc;
