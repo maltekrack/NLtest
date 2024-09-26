@@ -40,7 +40,7 @@ addpath('../../SRC');
 %% KEY USER INPUT
 
 % Folder with measurements
-BASEFOLDER = '../../../DATA/TRChallenge';
+BASEFOLDER = '';
 
 % Specify configuration [1|2|3|4]
 CONFIG = 4;
