@@ -33,6 +33,13 @@
 %     modalDampingRatio_mean    mean of damping ratio       double
 %     modalDampingRatio_std     standard deviation of ...   double
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This file is part of NLtest available via
+% https://github.com/maltekrack/NLtest.
+% 
+% COPYRIGHT (C) 2024
+%   Malte Krack (malte.krack@ila.uni-stuttgart.de) 
+%   Maren Scheel (maren.scheel@ila.uni-stuttgart.de)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [modalFrequency,modalDampingRatio_mean,modalDampingRatio_std] = ...
     circleFit(freq,FRF,varargin)
 %% Handle and check user input
