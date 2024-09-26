@@ -5,13 +5,13 @@ The test methods are described in [2].
 CAD models, technical drawings and design documentation are available in [3].
 The measurement data is available in [4].
 
-#REFERENCES
+REFERENCES
 [1] http://tmd.rice.edu/ tribomechadynamics-research-challenge-2021/
 [2] https://arxiv.org/abs/2403.07438
 [3] https://doi.org/10.18419/darus-3147
 [4] https://doi.org/10.18419/darus-4484
 
-#INSTRUCTIONS
+INSTRUCTIONS
 1. Download NLtest via GitHub (https://github.com/maltekrack/NLtest --> <> Code --> Download ZIP) and extract in a folder on your computer. Make sure that you have more than 40 GB space for the measurement data files.
 2. Download measurement data from https://doi.org/10.18419/darus-4484. There are 4 ZIP archives with the data for each of the 4 tested configurations. For simplicity, download all archives and the README file. Sorry that the files are so large! As alternative, you can also inspect the archives and select individual files for download.
 3. Extract the measurement data to a folder named like the ZIP file ('config1', 'config2', 'config3', 'config4').
