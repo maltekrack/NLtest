@@ -25,6 +25,14 @@
 % [4] https://doi.org/10.18419/darus-3147
 % [5] https://doi.org/10.18419/darus-4484
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This file is part of NLtest available via
+% https://github.com/maltekrack/NLtest.
+% 
+% COPYRIGHT (C) 2024
+%   Malte Krack (malte.krack@ila.uni-stuttgart.de) 
+%   Maren Scheel (maren.scheel@ila.uni-stuttgart.de)
+%   and the co-authors of [3].
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clearvars;
 close all;
 clc;
