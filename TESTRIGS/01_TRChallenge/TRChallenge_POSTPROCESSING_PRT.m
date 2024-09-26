@@ -69,7 +69,7 @@ options.target_number_of_last_periods_of_hold_phase_to_process = 70;
 %% LOAD DATA FROM FILES AND PREPARE FOR PROCESSING
 
 % Read linear modal data (column 1: first bending; column 2: first torsion)
-modes = readmatrix([BASEFOLDER '/config' num2str(CONFIG) '/Config' ...
+modes = readmatrix([BASEFOLDER 'config' num2str(CONFIG) '/Config' ...
     num2str(CONFIG) '_linear_complex_modes']);
 Philin = modes(1:15,:);     % non-normalized modal deflection shapes
 omlin = 2*pi*modes(16,:);   % linear modal frequency in rad/s
@@ -78,7 +78,7 @@ omlin = 2*pi*modes(16,:);   % linear modal frequency in rad/s
 options.nominalFreq = omlin(1)/(2*pi);
 
 % Generate data and step file name
-tmp = [BASEFOLDER '/config' num2str(CONFIG) '/Config' ...
+tmp = [BASEFOLDER 'config' num2str(CONFIG) '/Config' ...
     num2str(CONFIG) '_PRT'];
 dataFileName = [tmp '_Assemb' num2str(ASSEMB)];
 if CONFIG==1 || CONFIG==2
