@@ -1,0 +1,15 @@
+The files in this folder are to post-processes data acquired from the tests described in [1]. The test rig involves two similar cantilevered beams undergoing soft collisions via a unilateral spring. 
+
+The test methods are described in [1]. CAD models, technical drawings and design documentation are available in [3].
+The measurement data is available in [2]. Besides measurement data, you also find CAD files and technical drawings, as well as a PDF indicating the measurement points in [2].
+
+REFERENCES
+[1] https://doi.org/10.25518/2684-6500.180
+[2] https://doi.org/10.18419/darus-4501
+
+INSTRUCTIONS
+1. Download NLtest via GitHub (https://github.com/maltekrack/NLtest --> <> Code --> Download ZIP) and extract in a folder on your computer. Make sure that you have more than 13 GB space for the measurement data files.
+2. Download measurement data from https://doi.org/10.18419/darus-4501. There is one ZIP archive 'measurements.zip'. You can also download the CAD drawings, a PDF showing the measurement points, and a README file describing the measurement data.
+3. Extract the measurement data to a folder named like the ZIP file ('measurements').
+4. Run the post-processing script for Backbones ('VIBeams_POSTPROCESSING_Backbones.m') first, and then that for Frequency-Response Curves ('VIBeams_POSTPROCESSING_FRCs.m'), since the latter relies on results from the former.
+5. You can select different test runs, post-processing options and so on.
