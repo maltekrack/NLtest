@@ -25,7 +25,7 @@
 % REFERENCES
 % [1] http://tmd.rice.edu/ tribomechadynamics-research-challenge-2021/
 % [2] http://tmd.rice.edu/tribomechadynamics-research-camp/2022-graduate-projects/
-% [3] https://arxiv.org/abs/2403.07438
+% [3] https://doi.org/10.25518/2684-6500.206
 % [4] https://doi.org/10.18419/darus-3147
 % [5] https://doi.org/10.18419/darus-4484
 % [6] https://doi.org/10.1016/j.ymssp.2022.109170
