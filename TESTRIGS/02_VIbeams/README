@@ -1,7 +1,6 @@
 The files in this folder are to post-processes data acquired from the tests described in [1]. The test rig involves two similar cantilevered beams undergoing soft collisions via a unilateral spring. 
 
-The test methods are described in [1]. CAD models, technical drawings and design documentation are available in [3].
-The measurement data is available in [2]. Besides measurement data, you also find CAD files and technical drawings, as well as a PDF indicating the measurement points in [2].
+The test methods are described in [1]. The measurement data is available in [2]. Besides measurement data, you also find CAD files and technical drawings, as well as a PDF indicating the measurement points in [2].
 
 REFERENCES
 [1] https://doi.org/10.25518/2684-6500.180
