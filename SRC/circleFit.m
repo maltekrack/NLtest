@@ -120,9 +120,6 @@ for iComb=1:size(combs,2)
     Omb = 2*pi*freq(ib);
 
     % Evaluate phase difference to resonance, above and below
-    % %             WHY THE FUCK DOES THIS NOT WORK?!
-    %             phia = angle(FRF0(iRes)) - angle(FRF0(iLeft));
-    %             phib = angle(FRF0(iRes)) - angle(FRF0(iRight));
     phia = atan(abs(real(FRF0(ia)))/abs(imag(FRF0(ia))));
     phib = atan(abs(real(FRF0(ib)))/abs(imag(FRF0(ib))));
 
