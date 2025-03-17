@@ -21,7 +21,7 @@
 % 
 % REFERENCES
 % [1] https://doi.org/10.25518/2684-6500.180
-% [2] https://doi.org/10.18419/darus-4501
+% [2] https://doi.org/10.18419/darus-4504
 % [3] https://doi.org/10.1016/j.ymssp.2022.109170
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This file is part of NLtest available via
