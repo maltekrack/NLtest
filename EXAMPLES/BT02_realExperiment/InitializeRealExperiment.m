@@ -1,0 +1,216 @@
+%========================================================================
+% DESCRIPTION: 
+% This script illustrates how to initialize a real backbone test. It builds 
+% the Simulink model (realExperiment.slx) required for running the physical
+% experiment, and stores the relevant settings in a .mat file.
+% 
+% The given example configuration corresponds to the RubBeR test rig 
+% [Scheel.2020], instrumented with 7 acceleration sensors, driven by a 
+% Brüel&Kjaer Type 4809 shaker applied via stinger at ~ two-third of the 
+% beam's length counted from the clamping, which is collocated with 5th 
+% sensor location (cf. Fig. 5 in [Scheel.2020]).
+%
+% See README.md and DOC/BackboneTracking.md for further information.
+%
+% REFERENCES
+% [Hippold.2024] P. Hippold, M. Scheel, L. Renson, M. Krack (2024): Robust 
+%       and fast backbone tracking via phase-locked loops, MSSP. 
+%       http://doi.org/10.1016/j.ymssp.2024.111670
+% [Scheel.2020]	M. Scheel, T. Weigele, M. Krack (2020): Challenging an 
+%       experimental nonlinear modal analysis method with a new strongly 
+%       friction-damped structure, Journal of Sound and Vibration. 
+%       http://doi.org/10.1016/j.jsv.2020.115580
+%========================================================================
+% This file is part of NLtest.
+% 
+% COPYRIGHT AND LICENSING: 
+% NLtest
+% Copyright (C) 2025  
+%       Malte Krack  (malte.krack@ila.uni-stuttgart.de) 
+%       Maren Scheel (maren.scheel@ila.uni-stuttgart.de)
+%       University of Stuttgart
+% This program comes with ABSOLUTELY NO WARRANTY. 
+% NLtest is free software, you can redistribute and/or modify it under the 
+% GNU General Public License as published by the Free Software Foundation, 
+% either version 3 of the License, or (at your option) any later version.
+% For details on license and warranty, see http://www.gnu.org/licenses
+% or gpl-3.0.txt.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clear;
+clc;
+close all;
+filepath = fileparts(mfilename("fullpath"));
+cd(filepath);
+addpath('../../SRC');
+%% Specify sampling time in s
+settings.samplingTime_s = 1e-4;
+%% Specify transducer settings
+
+% Specify response quantity ['displacement'|'velocity'|'acceleration'].
+% In this example, we have 7 acceleration sensors.
+settings.responseQuantity = repmat({'acceleration'},1,7);
+
+% Specify sensor collocated with drive point.
+idxDrivePoint = 5;
+settings.indexSensorDrivePoint = idxDrivePoint;
+
+% Specify index of mode whose backbone is to be tracked.
+% NOTE: Sorting must be consistent with linear modal data loaded below!
+idxTargetMode = 1;
+settings.indexTargetMode = idxTargetMode;
+
+% Specify sensitivities of transducers in [physical quantity] / V.
+% HINT: Use negative sensitivities to invert transducing direction
+settings.sensitivityResponse = 1./[ ...
+    10.24e-3, ...
+    10.21e-3, ...
+    1.054e-3, ...
+    1.072e-3, ...
+    10.06e-3, ...
+    1.073e-3, ...
+    1.070e-3];
+settings.sensitivityExcitation = 1/111.3e-3;
+
+% Specify delay of response and/or excitation signal in s.
+settings.delayResponse   = 0;
+settings.delayExcitation = 0;
+
+%% Specify required parameters of structure under test (SUT) and plant
+
+% Load modal data of SUT and plant.
+LMA_SUT = load(['DATA' filesep 'linearSUTModes'],...
+    'linearModalFrequency_Hz','linearModalDampingRatio','linearPhi');
+LMA_plant = load(['DATA' filesep 'linearPlantModes'],...
+    'linearPlantFrequency_Hz','linearPlantDampingRatio','linearPlantPhi');
+
+% Extract parameters of target mode.
+% NOTE: Only the entry of the mode shape at the drive point is needed to
+% prepare the backbone test ('linearPhiEx', 'linearPlantPhiEx').
+linearModalFrequency_Hz = LMA_SUT.linearModalFrequency_Hz(idxTargetMode);
+linearPlantFrequency_Hz = LMA_plant.linearPlantFrequency_Hz(idxTargetMode);
+linearModalDampingRatio = LMA_SUT.linearModalDampingRatio(idxTargetMode);
+linearPlantDampingRatio = LMA_plant.linearPlantDampingRatio(idxTargetMode);
+linearPhiEx = LMA_SUT.linearPhi(idxDrivePoint,idxTargetMode);
+linearPlantPhiEx = LMA_plant.linearPlantPhi(idxDrivePoint,idxTargetMode);
+
+% Specify moving mass of exciter according to data sheet.
+exciterMass_kg = 0.057;
+
+%% Specify backbone stepping
+
+% Test type ['steppedVoltage'|'steppedAmplitude']
+settings.testType = 'steppedVoltage';
+
+% Lowest and highest excitation level
+% NOTE: This is to be adjusted under consideration of the SUT behavior, 
+% exciter configuration and test objectives.
+switch settings.testType 
+    case 'steppedVoltage'
+        % For this test type, levels are voltage levels in V.
+        lowestLevel = 0.05;
+        highestLevel = 5.5;
+    case 'steppedAmplitude'
+        % For this test type, levels are displacement amplitudes at the
+        % drive point in m.
+        lowestLevel = 0.4e-5;
+        highestLevel = 7e-5;
+end
+% In any case, an upper limit to the output voltage should be specified to 
+% prevent damage. If higher values are generated by the amplitude
+% controller, the amplitude of the excitation signal is limited to this  
+% maximal value before forwarding it to the exciter.
+settings.voltageLimit = 7;
+
+% Here are two common ways to specify the excitation level profile.
+%       EXAMPLE 1:  March backbone up once using 'numberOfLevels' 
+%                   equidistant steps.
+numberOfLevels = 15;
+settings.levels = linspace(lowestLevel,highestLevel,numberOfLevels);
+% %       EXAMPLE 2:  March backbone up and down for a total of 
+% %                   'numberOfBackbones' times using 'numberOfLevels' 
+% %                   equidistant steps each. For 'numberOfBackbones' equal
+% %                   to 1 we march only up, for 2 up-down, for 3 up-down-up,
+% %                   and so forth.
+% numberOfLevels = 15;
+% numberOfBackbones = 2;
+% levelsFirstBackbone = linspace(lowestLevel,highestLevel,numberOfLevels);
+% settings.levels = repmat([levelsFirstBackbone,...
+%     fliplr(levelsFirstBackbone)],1,floor(numberOfBackbones/2));
+% if mod(numberOfBackbones, 2) == 1
+%     % Add one more up run if an uneven number of backbones is specified.
+%     settings.levels = [settings.levels,levelsFirstBackbone];
+% end
+
+%% Specify adaptive filter parameters
+% HINT: For systematic tuning of the adaptive filter, see 
+%   corresponding section of DOC/BackboneTracking.md, 
+%   EXAMPLES/PRE01_adaptiveFilterTuning, and / or 
+%   Section 4.2 of [Hippold.2024].
+
+% Cutoff frequency in rad/s
+settings.omLP = linearModalFrequency_Hz*2*pi / 8;  
+
+% Harmonic order
+settings.H = 10; 
+
+%% Specify parameters of settling detection and recording phase
+
+% Tolerance of phase error in °
+settings.tolerancePhaseShift_degree = 1;
+
+% Tolerance of amplitude error relative to set point
+settings.toleranceRelativeAmplitude = 0.02; 
+
+% Number of periods to be within tolerance band before system is considered 
+% as settled (and recording phase starts)
+settings.periodsInTolerance = 20;
+
+% Number of periods to be recorded (once settling has been detected)
+settings.recordedPeriods = 1; 
+
+%% Check settings (and add any unspecified ones by default values)
+settings = checkSettingsBackboneTracker(settings,...
+    linearPlantFrequency_Hz,linearPlantDampingRatio,linearPlantPhiEx,...
+    exciterMass_kg,linearModalFrequency_Hz,linearPhiEx);
+%% Select control gains in a theory-driven way (and re-tune if needed)
+% NOTE: For a more complete discussion of recommended settings and what to 
+% do in the event of control failure, see 
+%   DOC/BackboneTracking.md#what-to-do-if-the-controller-does-not-work.
+
+% Specify control design option.
+%   'optimal':  This provides a trade-off between maximum control error and 
+%               maximum frequency overshoot in the sense defined in 
+%               [Hippold.2024].
+%   'conservative': This is expected to reduce the frequency overshoot, at
+%                   the cost of slower settling. It has been observed to
+%                   provide higher robustness in combination with amplitude
+%                   control, i.e., when 'settings.testType' is set to
+%                   'steppedAmplitude'.
+PLLDesign = 'optimal';
+
+% Call controller design function.
+[settings.gainsPhaseController, settings.gainsAmplitudeController] = ...
+    controllerDesignBackboneTracker(settings.omLP,...
+    linearModalFrequency_Hz,linearModalDampingRatio,linearPhiEx,...
+    linearPlantFrequency_Hz,linearPlantDampingRatio,linearPlantPhiEx,...
+    exciterMass_kg,PLLDesign);
+
+% Set zero gains here for open-loop testing. This is useful, in particular, 
+% for the recommended systematic tuning procedure of the adaptive filter.
+% settings.gainsPhaseController.kp = 0;
+% settings.gainsPhaseController.ki = 0;
+% settings.gainsAmplitudeController.kp = 0;
+% settings.gainsAmplitudeController.ki = 0;
+
+%% Save settings
+dateString = char(datetime('now','format','yyyy_MM_dd-HH_mm'));
+if not(isfolder('DATA'))
+    % Should sub-folder 'DATA' not exist, create it. 
+    mkdir('DATA');
+end
+save(['DATA', filesep, sprintf('settings_%s',dateString)],'settings');
+%% Build Simulink model
+fprintf('---------------------------------------------------\n');
+fprintf('Compilation of Simulink model started\n');
+slbuild('realExperiment');
+fprintf('Compilation of Simulink model succeeded\n');
