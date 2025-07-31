@@ -99,9 +99,7 @@ settings.testType = 'steppedVoltage';
 % Lowest and highest excitation level
 switch settings.testType 
     case 'steppedVoltage'
-        % For this test type, levels are voltage amplitudes in V. Since an
-        % ideal exciter is with unity gain is used, this equals the force
-        % level at the drive point in N.
+        % For this test type, levels are voltage amplitudes in V.
         lowestLevel = 0.05;
         highestLevel = 5;
     case 'steppedAmplitude'
