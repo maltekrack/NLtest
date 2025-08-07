@@ -160,7 +160,7 @@ function [modalFrequency_Hz, modalDampingRatio,Phi,modalAmplitude,...
 
             % compute modal amplitude
             modalAmplitude = transpose(vecnorm(...
-                linearPhi\transpose(squeeze(Resp(:,2,:))))); 
+                linearPhi\transpose(squeeze(Resp(:,2,:))),2,1)); 
 
             % mass-normalized mode shape, Eq. 47 in [1]
             Phi =  Resp./repmat(modalAmplitude,1,size(Resp,2),size(Resp,3));
