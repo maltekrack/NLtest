@@ -196,7 +196,7 @@ function [modalFrequency_Hz, modalDampingRatio,Phi,modalAmplitude,...
                             'backbone measurement must match.'])
                 end
                 modalAmplitude = transpose(vecnorm(...
-                linearPhi\transpose(squeeze(Resp(:,2,:))))); 
+                linearPhi\transpose(squeeze(Resp(:,2,:))),2,1)); 
                 % mass-normalized mode shape, Eq. 47 in [1]
                 Phi =  Resp./...
                     repmat(modalAmplitude,1,size(Resp,2),size(Resp,3));
@@ -233,7 +233,7 @@ function [modalFrequency_Hz, modalDampingRatio,Phi,modalAmplitude,...
             modalDampingRatio = 1/2*abs((Eta'*PhiMb_lin).*Exc(:,2))./...
                 ((2*pi*frequency_Hz).^2.*abs(diag(Eta'*Eta)));
 
-            modalAmplitude = norm(Eta); 
+            modalAmplitude = vecnorm(Eta,2,1); 
             % mass-normalized mode shape, Eq. 47 in [1]
             Phi =  Resp./repmat(modalAmplitude,1,size(Resp,2),size(Resp,3));
             Phi = Phi(:,2:end,:); % restrict to dynamic part
