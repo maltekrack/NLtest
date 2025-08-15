@@ -129,7 +129,7 @@ variableName_phase_rad              = 'Labels/phase_rad';
 variableName_phaseCtrlOn            = 'Labels/phaseCtrlOn';
 variableName_ampCtrlOn              = 'Labels/ampCtrlOn';
 variableName_currentLevel           = ['Model Root/BackboneTracker/' ...
-    'BackboneTracker_R2022a/Model Root/steppingAndAmplitudeController/currentLevel'];
+    'BackboneTracker/Model Root/steppingAndAmplitudeController/currentLevel'];
 variableName_finished               = 'Labels/finished';
 
 % Specify names of modal parameters.
