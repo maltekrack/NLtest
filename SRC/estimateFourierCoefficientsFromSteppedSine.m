@@ -12,8 +12,8 @@
 % frequency can be imposed or feedback-controlled using a phase controller
 % such as a phase-locked loop.
 % 
-% In a PRT, the phase lag between excitation and response is kept at 
-% resonance, while the the excitation level is stepped. In a RCT, the 
+% In a PRT, the target is a fixed (resonant) phase lag between excitation 
+% and response, while the excitation level is stepped. In a RCT, the 
 % response level is kept fixed, while the frequency or the phase lag is
 % stepped. In an ECT, the excitation level is kept fixed, while the
 % frequency or the phase lag is stepped.
@@ -23,48 +23,57 @@
 % acceleration).
 % 
 % A typical step-type single-frequency nonlinear vibration test consists of
-% transient phases (ramps) and hold phases. This function selects data from
-% the hold phases by means of the boolean variable flagSettling. If 
-% flagSettling is true, the associated time instance is a "hold" phase, 
-% where the process variables are assumed to be in a settled state 
-% according to some tolerance criterion. 
+% alternating transient phases (ramps intended to achieve a smooth 
+% transition plus the time it takes to settle on a steady state) and 
+% steady-state phases, denoted "hold phases" in the following. This 
+% function selects data from the steady-state phases by means of the 
+% Boolean variable flagSettling. If flagSettling is true, the associated 
+% time instance is a treated as steady state. In other words, this function 
+% does not check for steady state, instead it relies on the specified 
+% categorization. The state-of-the-art implementation of the 
+% BackboneTracker, for instance, carries out such a categorization
+% during the test based on an automatic settling detection in accordance
+% with user specified tolerance parameters. In older implementations, a 
+% priori specified wait times were used, which were deemed sufficiently
+% long for transients to have decayed, inducing a categorization into
+% presumed transient and hold phases.
 %
 % To deal also with phase controlled tests, where the instantaneous
 % frequency is not an imposed piecewise constant but a dynamic quantity, 
 % the variable 'instFreq' is to be provided as time series of the same 
 % dimension as the discrete time vector ('time'). Further mandatory inputs 
 % are a scalar excitation ('exc') time series, a scalar or matrix response   
-% ('resp') time series and a scalar boolean time series of 'flagSettling'. 
+% ('resp') time series and a scalar Boolean time series 'flagSettling'. 
 % Additional time series of the instantanoues excitation phase (integral of
 % the excitation frequency) can be provided as optional input argument 
-% ('instPhase'). 
+% ('instPhase'). If it is not provided, it is obtained by numerical
+% integration of 'instFreq', if needed.
 % 
 % The steady excitation frequency is estimated as the mean value of 
-% 'instFreq' in the last part of the hold phase over a integer number of
-% periods. The length of this time span is determined in terms of 
+% 'instFreq' in the last part of a given hold phase over an integer number 
+% of periods. The length of this time span is determined in terms of 
 % excitation phase (if instPhase is provided) as 2*pi times 
 %       'target_number_of_last_periods_of_hold_phase_to_process'.
 % Otherwise, it is determined as 'nominalFrequency' times 
 %       'target_number_of_last_periods_of_hold_phase_to_process'.
 % Once the steady excitation frequency is estimated, this time span is 
-% updated. 
+% updated.
 %
 % Two options for estimating Fourier coefficients are implemented: The
 % first option is to apply an adaptive filter to the full time series of 
 % excitation and response signals and to subsequently average the estimated 
-% Fourier coefficients over a certain amount of vibration cycles. The
-% second option is to apply the FFT to the settled time frames (recording  
-% phases). 
+% Fourier coefficients over the specified number of last periods of the 
+% hold phases. The second option is to apply the FFT to the corresponding
+% time span.
 %
 % INPUT
 %   VARIABLE                MEANING                        TYPE
-%   time                    Time in s                      n x 1 double
-%   instFreq                Instantaneous frequency in Hz  n x 1 double
-%   exc                     Excitation time series         n x 1 double
-%   resp                    Response time series           n x nSens double
-%   flagSettling            indicates recording            n x 1 double
-%                           phases
-%   opt		                Options                        structure
+%   time                    time in s                      n x 1 double
+%   instFreq                instantaneous frequency in Hz  n x 1 double
+%   exc                     excitation time series         n x 1 double
+%   resp                    response time series           n x nSens double
+%   flagSettling            indicates hold phases          n x 1 double
+%   opt		                options                        structure
 %      FIELD NAMES
 %      computeFourier...    'adaptiveFilter' or            string
 %       Coefficients          'FFT'
@@ -77,7 +86,7 @@
 %      H                    harmonic order of Fourier      positive integer
 %                           coefficients to be estim. 
 % 
-%      nominalFrequency      nominal frequency, used        positive double
+%      nominalFrequency      nominal frequency, used       positive double
 %                            for estimating time span
 %                            corresponding to target
 %                            number of periods (if 
@@ -86,10 +95,10 @@
 %      samplingTimeNew      new time increment used for    double
 %                            interpolation   
 %
-%      omLP                 cut off frequency for          positive double
+%      omLP                 cutoff frequency of            positive double
 %                            adaptive filter
 %   
-%   varargin{1}             Instantaneous phase            n x 1 double
+%   varargin{1}             instantaneous phase            n x 1 double
 % 
 % 
 % OUTPUT
@@ -136,8 +145,9 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
     
     % Check if inputs are given as column vectors
     n = size(time,1);
-    if size(time,2)>1||size(instFreq,2)>1||size(exc,2)>1||size(resp,1)~= n
-        error('Input time series must be column vectors.');
+    if size(time,2)>1||size(instFreq,2)>1||size(exc,2)>1||...
+            size(flagSettling,2)>1
+        error('Expecting column vectors.');
     end
 
     % Check that options are given as struct
@@ -154,16 +164,19 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
     
     % Check consistency of input dimensions
     if size(instFreq,1)~=n||size(instPhase,1)~=n||...
-            size(exc,1)~=n||size(resp,1)~=n
+            size(exc,1)~=n||size(resp,1)~=n||size(flagSettling,1)~=n
         error('Inconsistent input time series dimensions.');
     end
     
-    % Check time vector
+    % Check for reasonable values
     if any(isnan([time,exc,resp]))
         error('NaN values not allowed within input.');
     end
+    if ~all(flagSettling==1|flagSettling==0)
+        error('flagSettling must be Boolean');
+    end
 
-    % If a target number of periods is not specified for recording phases, 
+    % If a target number of periods is not specified for hold phases, 
     % use default value
     if ~isfield(opt,'target_number_of_last_periods_of_hold_phase_to_process')
         opt.target_number_of_last_periods_of_hold_phase_to_process = 1;
@@ -179,11 +192,11 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
         end
     end
     
-    % Check post-processing method
+    % Check method for computing Fourier coefficients
     if ~strcmp(opt.computeFourierCoefficients,'adaptiveFilter') && ...
             ~strcmp(opt.computeFourierCoefficients,'FFT')
         error(['Expecting either string "adaptiveFilter" or "FFT" '... 
-            'for options how to compute Fourier coefficients.'])
+            'for option how to compute Fourier coefficients.'])
     end
     
     % Check provided nominal frequency
@@ -198,8 +211,12 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
             'Estimating it from mean absolute value of instFreq as ' ...
             num2str(opt.nominalFrequency) ' (same unit as instFreq).\n']);
     end
-    % set time increment for interpolation
-    if isfield(opt,'samplingTimeNew') && ~isempty(opt.samplingTimeNew)
+    % Set time increment for interpolation
+    if isfield(opt,'samplingTimeNew') 
+        if ~isscalar(opt.samplingTimeNew) || ...
+                ~isreal(opt.samplingTimeNew) || opt.samplingTimeNew<=0
+            error('Provided new sample time must be real positive scalar.')
+        end
         dttmp = opt.samplingTimeNew;
     else 
         dttmp = mean(diff(time)); % needed for check of Nyquist criterion
@@ -211,8 +228,9 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
             error('Expecting positive integer for number of harmonics.')
         end
         if opt.H > floor(1/dttmp/opt.nominalFrequency/2.56)-1
-            warning(['Provided number of harmonics might violated '...
-                'Nyquist criterion. Please verify or decrease.'])
+            warning(['Frequency of highest harmonic to be estimated is '...
+                'close to or above maximum according to Nyquist criterion. '...
+                'Please verify or decrease harmonic order.'])
         end
     else
         % None specified, select maximum. The factor is 2.56 instead of the 
@@ -222,22 +240,34 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
         opt.H = floor(1/dttmp/opt.nominalFrequency/2.56)-1;
     end
     
-    % Check provided number of harmonics
+    % Check adaptive filter cutoff frequency
     if isfield(opt,'omLP')&&~isempty(opt.omLP)
         if opt.omLP<=0
             error('Expecting positive number for low-pass filter frequency.')
         end
     end
     
-    %% Determine end of recording phases with original time vector
-    holdPhase = [time(diff(flagSettling)>0) time(diff(flagSettling)<0)];  
+    %% Define hold phases
+
+    % Determine start and end time instants of hold phases
+    holdSTART = time(diff(flagSettling)>0);
+    holdEND = time(diff(flagSettling)<0);
+
+    % Check if all hold phases have start and end
+    if numel(holdSTART)~=numel(holdEND) || holdSTART(1)>holdEND(1)
+        error(['Each hold phase (indicated by flagSettling true) ' ...
+            'must have a start and an end in the provided time span.']);
+    end
+
+    % Store time intervals of hold phases
+    holdPhase = [holdSTART holdEND];
 
     %% Determine sampling and ensure equidistant sampling
     dt = mean(diff(time));
     if any(diff(time)<0)
         error('Forward sampling required.');
     elseif max(abs((diff(time)/dt-1)))>1e-6||...
-            (isfield(opt,'samplingTimeNew')&&~isempty(opt.samplingTimeNew))
+            isfield(opt,'samplingTimeNew')
         % NOTE: With some real-time systems, the time step varies by about
         % +/-3%, which can distort the estimation of Fourier coefficients.
         % In that case, an interpolation is proposed. This is also relevant
@@ -245,9 +275,8 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
         % vector and interpolated data can then be an important output of
         % this function.
         fprintf(['Non-equidistant samples detected or new time increment'...
-            ' provided. Interpolation is necessary.\n If no time '...
-            'increment is specified, the mean time increment is used. '...
-            '\n Interpolating...\n']);
+            ' provided. Interpolating...\n If no time '...
+            'increment is specified, the mean time increment is used.\n ']);
         timetmp = time;
         if ~isfield(opt,'samplingTimeNew')
             dt = mean(diff(time));
@@ -269,12 +298,12 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
             'conducted.\n']);
     end
     
-    %% Determine end of recording phases with resampled time vector
+    %% Determine end of hold phases with resampled time vector
     [~,idxLast] = min(abs(repmat(time,[1 length(holdPhase(:,2))])...
         - holdPhase(:,2).'));
     numHoldPhases = length(idxLast);
     
-    %% Determine Fourier coefficients and evaluate in each recording phase
+    %% Determine Fourier coefficients and evaluate in each hold phase
 
     % Initialize output
     freq = zeros(numHoldPhases,1);
@@ -284,12 +313,12 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
 
     switch opt.computeFourierCoefficients 
         case 'adaptiveFilter'
-            % determine instantaneous phase if not provided
+            % Determine instantaneous phase if not provided
             if isempty(instPhase)
                 instPhase  = cumtrapz(time, 2*pi*instFreq);
             end
 
-            % apply adaptive filter
+            % Apply adaptive filter
             fprintf('Applying adaptive filter to measurement data...\n');
             [~, exc_FC]  = computeFourierCoefficientsWithAF(exc,dt,...
                 opt.H,instPhase,opt.omLP);
@@ -306,7 +335,7 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
 
     end
             
-    % Loop over recording phases
+    % Loop over hold phases
     for ihold=1:numHoldPhases
 
         % Estimate frequency and determine samples to be processed
@@ -314,10 +343,11 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
             estimateFrequencyAnddetermineSamplesToBeProcessed(time,...
             instFreq,instPhase,holdPhase(ihold,:),opt);
            
-        % determine Fourier coefficient for each recording phase 
+        % Determine Fourier coefficients for each hold phase 
         switch opt.computeFourierCoefficients
             case 'adaptiveFilter'
-                % determine and store Fourier coefficient through averaging
+                % Determine Fourier coefficients as mean over adaptive
+                % filter output
                 EXC(ihold,:) = mean(exc_FC(isToBeProcessed,:));
                 if size(resp_FC,3)==1
                     RESP(ihold,:,:) = ...
@@ -327,9 +357,9 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
                         squeeze(mean(resp_FC(isToBeProcessed,:,:)));
                 end
             case 'FFT'
-                % apply FFT for each recording phase
+                % Apply FFT to each hold phase
                 
-                % select and concatenate time series
+                % Select and concatenate time series
                 timeSeries = [exc(isToBeProcessed) resp(isToBeProcessed,:)];
             
                 % Compute Fourier coefficients and update estimated frequency
@@ -342,10 +372,12 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
                 RESP(ihold,:,:) = ...
                     FourierCoefficients(:,1+(1:size(resp,2)));
 
-                if max(nargout,1)==11
+                % In case of FFT, no instantaneous estimate of the Fourier
+                % coefficients is available. Return empty arrays.
+                if nargout>=10
                     exc_FC = [];
                     resp_FC = [];
-                end 
+                end
         end
 
         % Store indices of selected samples and estimated frequency
@@ -359,13 +391,13 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
             np_eval = n_samp*dt*freq(ihold);
             if ihold==1
                 fprintf(['Information on estimation of excitation frequency'...
-                    ' and Fourier coefficients in FIRST recording phase:\n']);
+                    ' and Fourier coefficients in FIRST hold phase:\n']);
             else
                 fprintf(['Information on estimation of excitation frequency'...
-                    ' and Fourier coefficients in LAST recording phase:\n']);
+                    ' and Fourier coefficients in LAST hold phase:\n']);
             end
-            fprintf(['     Portion of recording phase used:         ' ...
-                num2str(1e2*np_eval/np_hold) '%.\n']);
+            fprintf(['     Portion of hold phase used:         ' ...
+                num2str(1e2*np_eval/np_hold) '%%.\n']);
             fprintf(['     Number of samples used per period:  ' ...
                 num2str(round(n_samp/np_eval)) '.\n']);
         end
@@ -376,7 +408,8 @@ end
 
 function [filteredSignal,FourierCoefficient] = ...
     computeFourierCoefficientsWithAF(recordedSignal, dt, H, instPhase, omLP)
-    % applies discrete version of adaptive filter to time series
+    % This function applies the adaptive filter (discrete form) to the 
+    % given time series.
     %
     % INPUT
     %   VARIABLE                MEANING                        TYPE
@@ -385,8 +418,8 @@ function [filteredSignal,FourierCoefficient] = ...
     %   H                       number of consecutive          double
     %                            harmonics in the basis
     %   instPhase               instantaneous phase in radians n x 1 double
-    %   omLP                    cut off frequency for          double
-    %                            adaptive filter        
+    %   omLP                    cutoff frequency of            double
+    %                            adaptive filter
     % OUTPUT
     %   VARIABLE                MEANING                        TYPE
     %   filteredSignal          reconstructed time series      n x 1 double
@@ -395,24 +428,31 @@ function [filteredSignal,FourierCoefficient] = ...
     
     % Initialize output
     FourierCoefficient = zeros(H+1, size(recordedSignal,1));
+
+    % Define auxiliary variables
     basisPositive = exp(+1i*(0:H).'.*(instPhase).');
     basisNegative = exp(-1i*(0:H).'.*(instPhase).');
-    % apply adaptive filter
+
+    % Loop over time
     for ii = 1:length(recordedSignal)-1
         FourierCoefficient(:, ii+1) = FourierCoefficient(:, ii) + ...
             2 * omLP * dt * basisNegative(:,ii)*(...
             recordedSignal(ii) - real(...
             FourierCoefficient(:,ii).'*basisPositive(:,ii) ) );
     end
+
+    % Reconstruct filtered signal
     filteredSignal = sum(real(FourierCoefficient.*basisPositive)).';
+
+    % Return Fourier coefficients in expected format
     FourierCoefficient = FourierCoefficient.';
 end
 %% NESTED FUNCTION: Est. frequency and determine samples to be processed
 function [isToBeProcessed,estimatedFrequency] = ...
     estimateFrequencyAnddetermineSamplesToBeProcessed(time,instFreq,instPhase,...
         holdPhase,opt)
-    % estimates excitation frequency in current recording phase and 
-    % determines index of samples to be processed
+    % This function estimates the excitation frequency in the current hold 
+    % phase and determines indices of samples to be processed.
     %
     % INPUT
     %   VARIABLE                MEANING                        TYPE
@@ -420,7 +460,7 @@ function [isToBeProcessed,estimatedFrequency] = ...
     %   instFreq                instantaneous frequency in Hz  n x 1 double
     %   instPhase               instantaneous phase in radians n x 1 double
     %   holdPhase               start and end time of          1 x 2 double
-    %                            recording phase    
+    %                            hold phase    
     %   opt                     options                        struct
     %      FIELD NAMES
     %       target_number_...    number of periods to be     positive integer
@@ -434,10 +474,10 @@ function [isToBeProcessed,estimatedFrequency] = ...
     % OUTPUT
     %   VARIABLE                MEANING                        TYPE
     %   isToBeProcessed         indicates samples of          n x 1 logcial
-    %                            recording phase
+    %                            hold phase
     %   estimatedFrequency      averaged frequency in Hz       double
 
-    % check if instantaneous phase is given
+    % Check if instantaneous phase is given
     if ~isempty(instPhase) 
         % instantaneous phase given:
         % periods are determined by determining phase difference

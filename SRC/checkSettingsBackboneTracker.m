@@ -1,19 +1,17 @@
 %========================================================================
 % DESCRIPTION: 
-% Matlab function checking the 'settings' structure for backbone tracking
-% as provided by the user. Omitted fields are replaced by default values
-% (where applicable). Auxiliary variables used in the Simulink model are 
-% computed/derived from the given input and stored as fields of 'settings'.
-%
-% Besides the 'settings' structure, the linear modal properties of plant
-% and structure under test (SUT) (see DOC/BackboneTracking.md) are required
-% to compute some of the default values. If no plant properties are 
-% provided, they are set equal to the modal properties of the SUT assuming 
-% an ideal exciter.
-%
-% For detailed information on the fields of 'settings' and the default
-% values, please refer to the comments in the code below.
+% The purpose of this function is to output a valid 'settings' structure
+% required for backbone tracking. To this end, parameters specified by 
+% the user (fields of input 'settings' structure) are checked. Unspecified
+% fields are added and set to default values. The settings are also
+% reported to the user via command line output.
 % 
+% Linear modal parameters of the plant and the structure under test (SUT)
+% with regard to the target mode are needed, together with the exciter 
+% moving mass, to obtain some of the default settings, see 
+% DOC/BackboneTracking.md. If no plant properties are provided, an ideal 
+% exciter is assumed (zero moving mass; plant modal parameters identical 
+% to that of SUT).
 % 
 % INPUT
 %   VARIABLE                    MEANING                         TYPE
@@ -60,42 +58,49 @@
 function [settings] = checkSettingsBackboneTracker(settings, ...
     linearPlantFrequency_Hz, linearPlantDampingRatio, linearPlantPhiEx, ...
     exciterMass_kg, linearModalFrequency_Hz, linearPhiEx)
+%% Handle unspecified plant/SUT modal parameters
 
-% if only one EMA is provided, use the same modal properties for plant and
-% SUT and set exciter mass to 0 (assumption of an ideal exciter).
+% If only one set of modal parameters is provided, use the same modal 
+% parameters for plant and SUT and set exciter mass to 0 (ideal exciter).
 if nargin < 5
     exciterMass_kg = 0;
     linearModalFrequency_Hz = linearPlantFrequency_Hz;
     linearPhiEx = linearPlantPhiEx;
 end
 
-%% general test settings
-fprintf('**INFO related to test setup\n');
+%% Instrumentation settings
+fprintf('**INFO on instrumentation\n');
 
-% default drive point index
+% Response sensor at drive point
 if ~isfield(settings,'indexSensorDrivePoint')
-    settings.indexSensorDrivePoint = 1;
-    fprintf('- Sensor %d is selected as drive point. [DEFAULT]\n', ...
-        settings.indexSensorDrivePoint)
+    if isscalar(settings.responseQuantity)
+        % A single response sensor is specified. Use this as drive point
+        % sensor.
+        settings.indexSensorDrivePoint = 1;
+        fprintf('- Sensor %d is selected as drive point. [DEFAULT]\n', ...
+            settings.indexSensorDrivePoint)
+    else
+        error(['If more than one response sensor is used, ' ...
+            'the drive point sensor must be specified.']);
+    end
 else
-        fprintf('- Sensor %d is selected as drive point.\n', ...
+    fprintf('- Sensor %d is selected as drive point.\n', ...
         settings.indexSensorDrivePoint)
 end
 
-% default target mode index
+% Target mode (whose backbone is to be tracked)
 if ~isfield(settings,'indexTargetMode')
     settings.indexTargetMode = 1;
-    fprintf('- Mode %d is selected as target mode to be tracked. [DEFAULT]\n', ...
+    fprintf('- Mode %d is selected as target mode. [DEFAULT]\n', ...
         settings.indexTargetMode);
 else
-    fprintf('- Mode %d is selected as target mode to be tracked.\n', ...
+    fprintf('- Mode %d is selected as target mode.\n', ...
         settings.indexTargetMode);
 end
 
-% integration time step in virtual experiment / sampling time in real
-% experiment
+% Sample time
 if ~isfield(settings, 'samplingTime_s')
-    settings.samplingTime_s = 1/(100*linearModalFrequency_Hz); % in s
+    settings.samplingTime_s = 1/(100*linearModalFrequency_Hz);
     fprintf('- The sampling frequency is set to %.0f Hz. [DEFAULT]\n', ...
         1/settings.samplingTime_s);
 else
@@ -103,7 +108,7 @@ else
         1/settings.samplingTime_s);
 end
 
-% sensitivities
+% Transducer sensitivities
 if ~isfield(settings, 'sensitivityExcitation')
     settings.sensitivityExcitation = 1;
     fprintf('- The sensitivity of the excitation sensor is %.3f <units>/V. [DEFAULT]\n', settings.sensitivityExcitation);
@@ -117,48 +122,50 @@ else
     fprintf('- The sensitivity of the response sensor is %.3f <units>/V.\n', settings.sensitivityResponse);
 end
 
-% delay compensation
+% Transducer delays
 if ~isfield(settings,'delayExcitation')
     settings.delayExcitation = 0;
     fprintf('- The measurement delay of the excitation is %.1f µs. [DEFAULT]\n', settings.delayExcitation*1e6);
 else
     fprintf('- The measurement delay of the excitation is %.1f µs.\n', settings.delayExcitation*1e6);
 end
-
 if ~isfield(settings, 'delayResponse')
     settings.delayResponse = 0;
     fprintf('- The measurement delay of the response is %.1f µs. [DEFAULT]\n', settings.delayResponse*1e6);
 else
     fprintf('- The measurement delay of the response is %.1f µs.\n', settings.delayResponse*1e6);
 end
-
-% compensation of signal delays
+% Compensate effect of delays on phase lag. For this, the less delayed 
+% signal is shifted by a certain number of samples.
 if settings.delayResponse > settings.delayExcitation
-    settings.nDelayExcitation = round((settings.delayResponse - settings.delayExcitation)/...
+    settings.nDelayExcitation = round((settings.delayResponse - ...
+        settings.delayExcitation)/...
         settings.samplingTime_s);
     settings.nDelayResponse = 0;
     fprintf(['- The excitation is delayed by %d samples to compensate the ' ...
-        'difference in measurement delays.\n'], settings.nDelayExcitation);
+        'difference in measurement delays.\n'], ...
+        settings.nDelayExcitation);
 elseif settings.delayResponse < settings.delayExcitation
     settings.nDelayExcitation = 0;
-    settings.nDelayResponse = round((settings.delayExcitation - settings.delayResponse)/...
+    settings.nDelayResponse = round((settings.delayExcitation - ...
+        settings.delayResponse)/...
         settings.samplingTime_s);
     fprintf(['- The response is delayed by %d samples to compensate the ' ...
-        'difference in measurement delays.\n'], settings.nDelayResponse);
+        'difference in measurement delays.\n'], ...
+        settings.nDelayResponse);
 else
     settings.nDelayExcitation = 0;
     settings.nDelayResponse = 0;
     fprintf('- The measurement delays are equal. No compensation is necessary.\n')
 end
-
 if mod(abs(settings.delayExcitation-settings.delayResponse),settings.samplingTime_s) ~= 0
     warning(['The relative delay of the sensors is not an integer ' ...
         'multiple of the sampling time. Consider adjusting the sample ' ...
-        'time to avoid  inaccurate phase estimation.']);
+        'time to avoid inaccurate phase estimation.']);
 end
 
-% set target phase shift depending on drive point response type
-% 'respQtyNumeric' is needed in Simulink
+% Determine target phase shift for phase resonance
+% NOTE:'respQtyNumeric' is needed in Simulink.
 switch settings.responseQuantity{settings.indexSensorDrivePoint}
     case 'displacement'
         settings.targetPhaseShift_rad = pi/2;
@@ -174,13 +181,14 @@ switch settings.responseQuantity{settings.indexSensorDrivePoint}
 end
 fprintf(['- The response at the drive point is measured in terms of %s.'...
     ' The resulting target phase lag is %.0f degrees.\n'], ...
-    settings.responseQuantity{settings.indexSensorDrivePoint}, settings.targetPhaseShift_rad*180/pi)
+    settings.responseQuantity{settings.indexSensorDrivePoint}, ...
+    settings.targetPhaseShift_rad*180/pi)
 
-%% settling detection and recording
-fprintf('**INFO on automatized stepping\n');
-% threshold for phase settling
+%% Settling detection and number of settled periods to be recorded
+fprintf('**INFO on settling detection and recording\n');
+% Threshold for phase settling
 if ~isfield(settings,'tolerancePhaseShift_degree')
-    settings.tolerancePhaseShift_degree = 1;   % convergence tolerance in degree
+    settings.tolerancePhaseShift_degree = 1;
     fprintf('- The phase shift tolerance is %.2f degrees. [DEFAULT]\n', ...
         settings.tolerancePhaseShift_degree);
 else
@@ -188,7 +196,7 @@ else
         settings.tolerancePhaseShift_degree);
 end
 
-% threshold for amplitude settling (tolerance relative to setpoint)
+% Threshold for amplitude settling (tolerance relative to setpoint)
 if ~isfield(settings,'toleranceRelativeAmplitude')
     settings.toleranceRelativeAmplitude = 0.01;
     fprintf('- The relative amplitude tolerance is %.2f %%. [DEFAULT]\n', ...
@@ -198,8 +206,8 @@ else
         settings.toleranceRelativeAmplitude);
 end
 
-% define how many periods should be within tolerance criterion before start
-% recording
+% Number of periods in the tolerance corridor are required to meet the
+% settling criterion (and start recording)
 if ~isfield(settings, 'periodsInTolerance')
     settings.periodsInTolerance = 20;
     fprintf('- The required number of periods in tolerance is %d. [DEFAULT]\n', ...
@@ -209,43 +217,62 @@ else
         settings.periodsInTolerance);
 end
 
-% number of periods to be recorded ofter settling was detected
+% Number of periods to be recorded (once settling criterion has been met)
 if ~isfield(settings, 'recordedPeriods')
-    settings.recordedPeriods = 1; 
+    settings.recordedPeriods = 1;
     fprintf(['- The number of periods to be recorded for each ' ...
         'backbone point is %d. [DEFAULT]\n'], ...
         settings.recordedPeriods);
 else
-        fprintf(['- The number of periods to be recorded for each ' ...
+    fprintf(['- The number of periods to be recorded for each ' ...
         'backbone point is %d.\n'], ...
         settings.recordedPeriods);
 end
 
-%% Excitation-related settings
-fprintf('**INFO on excitation\n');
+%% Excitation profile
+fprintf('**INFO on excitation profile\n');
 
-% voltage limit
+% Check whether valid test type is specified
+if ~isfield(settings,'testType')
+    error('No test type specified. Set test type to steppedVoltage or steppedAmplitude.');
+elseif ~strcmp(settings.testType, 'steppedVoltage') && ...
+        ~strcmp(settings.testType,'steppedAmplitude')
+    error('Invalid test type. Set test type to steppedVoltage or steppedAmplitude.')
+end
+
+% Check whether excitation levels were specified
+if ~isfield(settings,'levels')
+    error('No levels specified.')
+end
+
+% Voltage limit
 if ~isfield(settings,'voltageLimit')
     settings.voltageLimit = inf;
     warning(['No voltage limit specified. Set an appropriate ' ...
         'voltage limit to protect your hardware from possible overload. ' ...
         '(You can ignore this warning in case of a virtual experiment.)']);
 else
-    fprintf('- The plant input voltage is limited to %.2f V.\n',settings.voltageLimit);
+    fprintf('- The plant input voltage is limited to %.2f V.\n',...
+        settings.voltageLimit);
 end
 
-% first ramp time
-% use amplitude settling time as ramp time, see [1]
+% Calculate default ramp time as 5% settling time of the amplitude 
+% transient (assuming amplitude-constant plant damping) [1].
 defaultRampTime_s = -log(0.05)/...
-    (linearPlantDampingRatio*linearPlantFrequency_Hz*2*pi*(1+exciterMass_kg*linearPhiEx^2));
+    (linearPlantDampingRatio*linearPlantFrequency_Hz*2*pi*...
+    (1+exciterMass_kg*linearPhiEx^2));
 
+% Initial ramp time
 if ~isfield(settings, 'firstRampTime_s')
-    % Use default, but minimum 100 liner periods for first ramp to guarantee a
-    % smooth startup. Limit to 1000 periods n case of very light damping.
-    settings.firstRampTime_s = min(max(defaultRampTime_s,100/linearModalFrequency_Hz),...
-        1000/linearModalFrequency_Hz);
+    % Use default, but minimum 100 linear periods for first ramp to 
+    % guarantee smooth startup. Limit to 1000 periods in case of very 
+    % light damping.
+    settings.firstRampTime_s = min( ...
+        max(defaultRampTime_s,100/linearModalFrequency_Hz), ...
+        1000/linearModalFrequency_Hz );
     fprintf(['- The initial voltage ramp takes %.0f linear ', ...
-        'periods. [DEFAULT]\n'], settings.firstRampTime_s*linearModalFrequency_Hz);
+        'periods. [DEFAULT]\n'], ...
+        settings.firstRampTime_s*linearModalFrequency_Hz);
 else
     fprintf(['- The initial voltage ramp takes %.0f linear ', ...
         'periods.\n'], settings.firstRampTime_s*linearModalFrequency_Hz);
@@ -256,66 +283,74 @@ else
     end
 end
 
-% test type dependent settings
-if ~isfield(settings,'testType')
-    error('No test type specified. Set test type to steppedVoltage or steppedAmplitude.');
-elseif ~strcmp(settings.testType, 'steppedVoltage') && ...
-        ~strcmp(settings.testType,'steppedAmplitude')
-    error('Invalid test type. Set test type to steppedVoltage or steppedAmplitude.')
-end
-
-if ~isfield(settings,'levels')
-    error('No levels specified.')
-end
-
+% Set initial level, steps and ramps. Estimate minimum test duration.
 switch settings.testType
     case 'steppedVoltage'
         fprintf(['- The backbone is tracked using prescribed shaker ' ...
             'input voltage levels.\n']);
-        % set initial voltage level equal to first prescribed level
+
+        % Set numeric test specifier (used in Simulink)
+        settings.testTypeNumeric = 1;
+
+        % Store specified voltage levels (for plotting)
+        settings.voltageLevels = settings.levels; 
+
+        % Adopt initial voltage level
         settings.initialVoltage = settings.levels(1);
-        % initialVoltage is later added to the input steps and must 
-        % therefore be substracted here
-        settings.voltageLevels = settings.levels; % store original voltage levels for plotting
+
+        % 'initialVoltage' is later added when stepping and must therefore 
+        % be substracted here
         settings.levels = settings.levels - settings.initialVoltage;
+
+        % Check whether any of the specified levels exceeds the limit
         if max(settings.voltageLevels) > settings.voltageLimit
             error(['The voltage limit is lower than the highest voltage level.' ...
                 ' Adjust either the limit or the levels.']);
         end
-        % change to numeric value for case selection in Simulink model
-        settings.testTypeNumeric = 1; 
+        
+        % Ramp time (for transition between levels)
         if ~isfield(settings,'rampTime_s')
-            % Use default time for all ramps in case of stepped voltage. Limit to
-            % 1000 periods in case of light damping
+            % Use default time for all ramps in case of stepped voltage. 
+            % Limit to 1000 periods in case of light damping
             if defaultRampTime_s <= 1000/linearModalFrequency_Hz
                 settings.rampTime_s = defaultRampTime_s;
                 fprintf(['- Each following voltage ramp takes %.0f linear ', ...
-                    'periods. [DEFAULT]\n'], settings.rampTime_s*linearModalFrequency_Hz)
+                    'periods. [DEFAULT]\n'], ...
+                    settings.rampTime_s*linearModalFrequency_Hz)
             else
                 settings.rampTime_s = 1000/linearModalFrequency_Hz;
                 warning(['The voltage ramp was limited to 1000 linear ' ...
-                    'periods although the plant decay rate implies a higher'...
+                    'periods although the plant decay rate suggests a higher'...
                     ' value. Consider using response amplitude control to ' ...
                     'reduce the test time and guarantee a steady state.'])
             end
         else
             fprintf(['- Each following voltage ramp takes %.0f linear ', ...
-                    'periods.\n'], settings.rampTime_s*linearModalFrequency_Hz)
+                    'periods.\n'], ...
+                    settings.rampTime_s*linearModalFrequency_Hz)
             if settings.rampTime_s*linearModalFrequency_Hz < 100 || ...
                     settings.firstRampTime_s*linearModalFrequency_Hz > 1000
                 warning(['The specified ramp time is not within the typical' ...
                     'range of 100 to 1000 linear periods.']);
             end
         end
+
+        % Estimate minimum test duration
         minimumTestDuration = settings.firstRampTime_s*linearModalFrequency_Hz + ...
             (length(settings.levels)-1)*(settings.rampTime_s*linearModalFrequency_Hz) + ...
             length(settings.levels)*(settings.periodsInTolerance+settings.recordedPeriods);
+
     case 'steppedAmplitude'
         fprintf(['- The backbone is tracked using controlled response ' ...
             'amplitude levels.\n']);
+
+        % Set numeric test specifier (used in Simulink)
+        settings.testTypeNumeric = 2;
+
+        % Set initial voltage level
         if ~isfield(settings,'initialVoltage')
-            % use linear estimate of voltage required to reach first prescribed
-            % response level
+            % Use linear estimate of voltage required to reach first 
+            % requested response level
             settings.initialVoltage = 1/linearPlantPhiEx^2 * ...
                 2*linearPlantDampingRatio* ...
                 (linearModalFrequency_Hz*2*pi)^2 * settings.levels(1);
@@ -326,9 +361,11 @@ switch settings.testType
             fprintf('- The initial voltage level is %.2f V.\n', ...
                 settings.initialVoltage);
         end
+
+        % Adopt amplitude levels
         settings.amplitudeLevels = settings.levels;
-        % change to numeric value for case selection in Simulink model
-        settings.testTypeNumeric = 2; 
+
+        % Ramp time (for transition between levels)
         if ~isfield(settings, 'rampTime_s')
             % amplitude control: use fixed number of linear cycles (here:
             % 100)
@@ -344,58 +381,59 @@ switch settings.testType
                     'range of 100 to 1000 linear periods.']);
             end
         end
+
+        % Estimate minimum test duration
         minimumTestDuration = settings.firstRampTime_s*linearModalFrequency_Hz + ...
             settings.periodsInTolerance + ...
             (length(settings.levels)-1)*(settings.rampTime_s*linearModalFrequency_Hz) + ...
             length(settings.levels)*(settings.periodsInTolerance+settings.recordedPeriods);
+
 end
 
-% number of total levels, also considering several backbone runs
+% Total number of levels (may contain several backbone runs)
 settings.nLevelsTotal = length(settings.levels);
 
-%% Controller-related settings
-fprintf('**INFO on Fourier decomposition and control\n');
+%% Adaptive filter
+fprintf('**INFO on Fourier decomposition\n');
 
-% check adaptive filter settings
+% Check cutoff frequency
 if ~isfield(settings, 'omLP')
-    error('No adaptive filter cutof frequency specified.');
-elseif ~(settings.omLP > 0) 
-        error('Low pass frequency omLP must be a positive number.')
+    error('No adaptive filter cutoff frequency specified.');
+elseif ~(settings.omLP > 0)
+    error('Adaptive filter cutoff frequency must be a positive number.')
 end
 fprintf(['- The ratio of adaptive filter cutoff frequency to linear' ...
-    ' modal frequency is %.3f and hence in the typical range.\n'],...
+    ' natural frequency of the target mode is %.3f.\n'],...
     settings.omLP/linearModalFrequency_Hz/2/pi);
 if settings.omLP/linearModalFrequency_Hz/2/pi > 1
-    warning(['The chosen adaptive filter cutoff frequncy is above the ' ...
-        'typical range of [0.01, 1] times the linear natural frequency '...
-        'of the structure under test.']);
+    warning(['This value is above the ' ...
+        'typical range of [0.01, 1].']);
 elseif settings.omLP/linearModalFrequency_Hz/2/pi < 0.01
-    warning(['The chosen adaptive filter cutoff frequncy is below the ' ...
-        'typical range of [0.01, 1] times the linear natural frequency '...
-        'of the structure under test.']);
+    warning(['This value is below the ' ...
+        'typical range of [0.01, 1].']);
 end
 
+% Check harmonic order
 if ~isfield(settings, 'H')
     settings.H = floor(1/(2.6*settings.samplingTime_s*linearModalFrequency_Hz));
     fprintf(['- The harmonic order is set to %d based on the sampling ' ...
         'frequency. [DEFAULT]\n'], settings.H);
 else
-        fprintf('- The harmonic order is %d.\n', settings.H)
-        if settings.H > floor(1/(2.6*settings.samplingTime_s*linearModalFrequency_Hz))
-            warning(['Highest harmonic is close to or above Nyquist frequency. ' ...
-                'Consider increasing the sampling frequency or decreasing the harmonic order.']);
-        end
+    fprintf('- The harmonic order is set to %d.\n', settings.H)
+    if settings.H > floor(1/(2.6*settings.samplingTime_s*linearModalFrequency_Hz))
+        warning(['Frequency of highest harmonic to be estimated is close to or above maximum according to Nyquist criterion. ' ...
+            'Consider increasing the sampling frequency or decreasing the harmonic order.']);
+    end
 end
 
-
-%% Print/plot relevant information on test
+%% Print estimated minimum test duration 
 fprintf(['- The minimum test duration (assuming constant modal ' ...
     'frequency) is %.0f vibration cycles / %.0f s.\n  %.2f %% of the ' ...
-    'minimum test duration are recording time.\n'], ...
+    'minimum test duration are expected to be spent on recording the ' ...
+    'steady state.\n'], ...
     minimumTestDuration, minimumTestDuration/linearModalFrequency_Hz, ...
     length(settings.levels)*settings.recordedPeriods/minimumTestDuration);
-
-% plot excitation profile
+%% Plot excitation profile
 figure;
 hold on;
 xlabel('level');
@@ -408,6 +446,4 @@ switch settings.testType
         plot(settings.amplitudeLevels,'-x')
 end
 box on;
-
 end
-

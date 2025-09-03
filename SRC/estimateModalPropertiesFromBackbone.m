@@ -1,34 +1,44 @@
 %========================================================================
 % DESCRIPTION: 
-% Matlab function estimating modal properties (frequency, damping ratio and
-% (mass-normalized) mode shape. 
-% To this end, the Fourier coefficient of the response must be given in 
-% terms of displacement. Furthermore, the Fourier coefficients are turned 
-% such that the fundamental harmonic component of a specific sensor is 
-% purely real. Thus, the index of this sensor must be provided, e.g. the 
-% drive point.
-%
-% Three versions are implemented: for force excitation (following [1] and  
-% for base excitation in the model-free or the modal-based version [2].
-%
-% For force excitation, linear mass-normalized mode shapes are 
-% required. Note that the number of linear modes included in the mode 
-% shapes must not exceed the number of sensors (nSens >= nModes). The 
-% sensor order in the linear mode shapes must be the same as in the 
-% response Fourier coefficients. The index of the sensor to be purely real
-% must be the drive point.
-%
-% In the model-free version for base excitation, a quadrature rule is 
-% suggested to estimate the damping ration according to Eq. 28 in [2]. To
-% this end, the weights must be provided. If linear mass-normalized mode
-% shapes are further provided (optional), the nonlinear mode shape is 
-% also mass-normalized as in the force excitation case.
-%
-% In the model-based version for base excitation, linearPhi^H*M*b must be 
-% provided as well as linear mass-normalized mode shapes. Note that the 
-% number of linear modes included in the mode  shapes must not exceed the 
-% number of sensors (nSens >= nModes).
-%
+% This function identifies amplitude-dependent modal parameters of 
+% well-separated modes from data acquired during backbone tracking. More
+% specifically, this function outputs modal frequency 
+% (modalFrequency_Hz), damping ratio (modalDampingRatio), mass-normalized 
+% Fourier coefficients of the deflection shape (Phi), and the 
+% corresponding modal amplitude (modalAmplitude).
+% 
+% For each point on the backbone curve, the complex Fourier coefficients 
+% of response (Resp) and excitation (Exc) need to be provided, together 
+% with the excitation frequency (frequency_Hz). It is presumed that the
+% response is provided in terms of displacement, i.e., if velocity or
+% acceleration is measured, the Fourier coefficients should be integrated
+% in the frequency domain before providing them to this function.
+% 
+% The identification method, in particular, the damping quantification
+% depends on the type of excitation. This is specified with the input 
+% excType (['force'|'base']). 
+% For base excitation, both the model-free and the model-based variant 
+% from [2] are implemented, and to be specified as varargin{1}
+% (['modelFree'|'modelBased']). In the model-free variant, numerical 
+% quadrature weights are to be provided as varargin{2} to approximate the
+% integrals in Eq. 28 in [2]. In the model-based variant, the vector 
+% linearPhi^H*M*b in Eq. 18 in [2] is to be provided as varargin{2}.
+% 
+% Under some conditions, linear mass-normalized modal deflection shapes 
+% (linearPhi) are needed. This is the case for force excitation and for 
+% base excitation in the model-based variant (plus in the model-free 
+% variant if the nonlinear mass-normalized deflection shape is to be 
+% determined). Of course, the number of response sensors must be larger or 
+% equal to the number of modes. If linearPhi is not needed, you may use []
+% as argument.
+% 
+% In the case of force excitation, the response sensor at the drive point
+% must be specified (indexReferenceSensor). The input Fourier coefficients
+% are phase normalized in this function in such a way that the fundamental
+% Fourier coefficient of the reference response sensor is real and
+% positive. The output Fourier coefficients have the same name (Resp, Exc).
+% In the case of base excitation, the reference sensor index is only used
+% for this phase normalization.
 % 
 % REFERENCES
 % [1] P. Hippold, M. Scheel, L. Renson, M. Krack: Robust and fast backbone
@@ -41,46 +51,32 @@
 %
 % INPUT
 %   VARIABLE               MEANING                        TYPE
-%   frequency_Hz           modal frequency in Hz          nHold x 1 double
-%   Resp                   Fourier coeffcient of          (nHold x H+1 x 
-%                           response in displacement        nSens) double
-%                           (m), normal to surface         
-%   Exc                    Fourier coefficient of         nHold x H+1 double
+%   frequency_Hz           excitation frequency in Hz     nBBP x 1 double
+%   Resp                   Fourier coeffcients of         nBBP x H+1 x 
+%                           response                       nSens double
+%   Exc                    Fourier coefficients of        nBBP x H+1 double
 %                           excitation 
-%   evalType               string indicating method       string      
-%   indexReferenceSensor   index pointing to sensor       integer
-%                           to be used for rotating
-%                           Fourier coefficient to real 
-%                           value
-% for evalType = 'force'
-%   varargin{1}            linear mass-normalized         nSens x nModes 
-%                           mode shape (nSens >= nModes)           double 
-% for evalType = 'modelFree'
-%   varargin{1}            weights for quadrature rule    nSens x 1 double 
-%   varargin{2}            optional: linear mass-         nSens x nModes 
-%                           normalized mode shapes                   double
-%                           (nSens >= nModes)
-% for evalType = 'modelBased'
-%   varargin{1}            linearPhi^H*M*b                nModes x 1 double 
-%   varargin{2}            linear mass-normalized         nSens x nModes 
-%                           mode shapes (nSens >= nModes)            double
+%   indexReferenceSensor   index of reference             integer
+%                           response sensor 
+%   linearPhi              linear mass-normalized         nSens x nModes 
+%                           deflection shapes              double 
+%   excType                excitation type specifier      string
+% if excType = 'base'
+%   varargin{1}            variant specifier              string
+%   if varargin{1} = 'modelBased'
+%       varargin{2}        PhiMb_lin                      nModes x 1 double
+%   if varargin{1} = 'modelFree'
+%       varargin{2}        weights                        nSens x 1 double
 %                           
 % OUTPUT
 %   VARIABLE                MEANING                     TYPE
-%    modalFrequency_Hz      modal frequency in Hz       nHold x 1 double  
-%    modalDampingRatio      modal damping ratio         nHold x 1 double 
-%    Phi                    mass-normalized nonlinear   (nHold x H x 
-%                            mode shape; only dynamic    nSens) double
-%                            part
-%    modalAmplitude         modal ampliutde in          nHold x 1 double
-%                            sqrt(m^2 kg)
-%    Resp                   Fourier coeffcients as in   (nHold x H+1 x 
-%                            input, but rotated such that     nSens) double
-%                            fundamental harmonic component
-%                            of indexReferenceSensor is real
-%    Exc                    Fourier coeffcients as in    nHold x H+1 double
-%                            input, but rotated accordingly
-%     
+%    modalFrequency_Hz      modal frequency in Hz       nBBP x 1 double  
+%    modalDampingRatio      modal damping ratio         nBBP x 1 double 
+%    Phi                    mass-normalized nonlinear   (nBBP x H+1 x 
+%                            mode shape                  nSens) double
+%    modalAmplitude         modal amplitude in          nBBP x 1 double
+%                            m*sqrt(kg)
+%    Resp, Exc              phase normalized input
 %========================================================================
 % This file is part of NLtest.
 % 
@@ -97,146 +93,222 @@
 % For details on license and warranty, see http://www.gnu.org/licenses
 % or gpl-3.0.txt.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-function [modalFrequency_Hz, modalDampingRatio,Phi,modalAmplitude,...
+function [modalFrequency_Hz,modalDampingRatio,Phi,modalAmplitude,...
     Resp,Exc] = estimateModalPropertiesFromBackbone(...
-    frequency_Hz,Resp,Exc,evalType,indexReferenceSensor,varargin)
+    frequency_Hz,Resp,Exc,indexReferenceSensor,linearPhi,excType,varargin)
+    %% Handle user input
 
-    % check that frequency is given as column vectors
+    % Check if frequency is given as column vector
     if size(frequency_Hz,2)~=1
-        error('Expecting frequency as column vector.')
+        error('Expecting frequency as column vector.');
     end
-    % check that Exc and Resp have as many rows as recording phases
-    if size(Exc,1)~=size(frequency_Hz,1)||...
-            size(Resp,1)~=size(frequency_Hz,1)
-        error(['Expecting the excitation and the response to have as '...
-            'many rows as the frequency.'])
-    end
-    % check that Resp and Exc contain equal number of harmonics
-    if size(Resp,2)~= size(Exc,2)
-        error(['Expecting the response and the force to have same '...
-            'number of columns (number of harmonics).'])
-    end
-    % check that index of reference sensor is a positive integer
-    if numel(indexReferenceSensor)~=1||indexReferenceSensor<=0||...
-            mod(indexReferenceSensor,1)~=0
-        error('Expecting positive integer for index of reference sensor.')
+    
+    % The number of rows in frequency_Hz is interpreted as number of
+    % backbone points
+    nBBP = size(frequency_Hz,1);
+    fprintf(['Estimating modal parameters for ' ...
+        num2str(nBBP) ' points on the backbone curve.\n']);
+
+    % The size of Resp in the third dimension is interpreted as number of
+    % sensors
+    nSens = size(Resp,3);
+
+    % Check if Exc and Resp have nBBP rows
+    if size(Exc,1)~=nBBP || size(Resp,1)~=nBBP
+        error(['Excitation and response must have as many rows as '...
+            'backbone points.']);
     end
 
-    % rotate dynamic complex Fourier coefficient such that one entry of 
-    % response is real, namely the fundamental harmonic compontent of 
-    % sensor indexReferenceSensor
+    % Check if Exc has at least two columns (the second column corresponds
+    % to the fundamental harmonic)
+    if size(Exc,2)<2
+        error(['Excitation input must have at least 2 columns. ' ...
+            'The second column corresponds to the required ' ...
+            'fundamental harmonic Fourier coefficient.']);
+    end
+
+    % Check if index of reference sensor is a positive integer in
+    % admissible range
+    if ~isscalar(indexReferenceSensor)||indexReferenceSensor<=0|| ...
+            ~(mod(indexReferenceSensor,1)==0)||...
+            indexReferenceSensor>nSens
+        error(['indexReferenceSensor must be valid index for ' ...
+            '3rd dimension of Resp.']);
+    end
+
+    % Check linearPhi, if provided
+    if nargin>=5 && ~isempty(linearPhi)
+        % Interpret second dimension as number of modes
+        nModes = size(linearPhi,2);
+
+        % Check dimensions
+        if size(linearPhi,1)~=nSens
+            error(['1st dimension of linearPhi must equal number of ' ...
+                'response sensors (' num2str(nSens) ' here).']);
+        elseif nSens<nModes
+            error(['Number of response sensors must exceed ' ...
+                'number of provided linear modes']);
+        end
+    else
+        % If linearPhi is not provided, define variables accordingly
+        nModes = 0;
+        linearPhi = zeros(nSens,0);
+    end
+
+    % Handle unspecified excType
+    if nargin<6
+        fprintf(['No excitation type specified, assuming force ' ...
+            'excitation.\n']);
+        excType = 'force';
+    end
+
+    % Handle nModes==0 
+    if nModes==0
+        if stcmp(excType,'force')
+            error(['In the case of force excitation, mass-normalized ' ...
+                'linear modal deflection shape(s) must be ' ...
+                'provided (linearPhi).']);
+        elseif strcmp(excType,'base') && strcmp(varargin{1},'modelBased')
+            error(['In the case of base excitation, mass-normalized ' ...
+                'linear modal deflection shape(s) must be ' ...
+                'provided (linearPhi) for the model-based variant ' ...
+                'of modal parameter identification.']);
+        end
+    end
+
+    %% Shift the phase of Exc and Resp consistently to have fundamental 
+    % Fourier coefficient of reference response real and >0.
+
+    % Determine angle of corresponding complex Fourier coefficient
     rotateAngle = angle(Resp(:,2,indexReferenceSensor));
-    Resp(:,2:end,:) = Resp(:,2:end,:).*...
-        exp(1i*repmat(-rotateAngle,1,size(Resp,2)-1,size(Resp,3)));
-    Exc(:,2:end) = Exc(:,2:end).*...
-        exp(1i*repmat(-rotateAngle,1,size(Resp,2)-1));
 
-    switch evalType
+    % Rotate complex Fourier coefficients Resp
+    H = size(Resp,2)-1;
+    Resp = Resp .* exp(-1i*repmat(rotateAngle*(0:H),...
+        1,1,size(Resp,3)));
+
+    % Rotate complex Fourier coefficients Exc
+    H = size(Exc,2)-1;
+    Exc = Exc .* exp(-1i*rotateAngle*(0:H));
+
+    %% Identify modal frequency
+
+    % In accordance with Single-Nonlinear-Mode Theory, the excitation 
+    % frequency at phase resonance equals the modal frequency. Here we 
+    % also presume sufficient control quality that the provided data
+    % corresponds indeed to the phase resonant backbone.
+    modalFrequency_Hz = frequency_Hz;
+
+    %% Identify modal damping ratio, mass-normalized deflection shapes and 
+    % corresponding modal amplitude depending on type of excitation
+    switch excType
         case 'force'
-            fprintf(['Computing damping ratio for the case of force '...
-                'excitation.\n'])
-            fprintf(['Interpreting the fifth input as index for '...
-                'drive point.\n'])
+            % Interpret indexReferenceSensor as index of drive point
+            % response sensor
             indexSensorDrivePoint = indexReferenceSensor;
-            % check consistency of drive point index
-            if ~isscalar(indexSensorDrivePoint)||...
-                    ~(mod(indexSensorDrivePoint,1)==0)||...
-                    indexSensorDrivePoint>size(Resp,3)
-                error(['Index of drive point sensor must be a scalar '...
-                    'integer and in range of number of sensors.'])
-            end
-            % check dimension of mode shapes
-            if length(varargin)>= 1
-                linearPhi = varargin{1};
-                if size(linearPhi,1) ~= size(Resp,3)
-                    error(['Number of sensors in linear mode shapes and'...
-                        ' backbone measurement must match.'])
-                end
-            else
-                error(['Linear mass-normalized mode shapes must be '...
-                    'provided as sixth input.'])
-            end
+            fprintf(['Treating index ' num2str(indexSensorDrivePoint) ...
+                ' in 3rd dimension of Resp as drive point response.\n']);
 
-            % compute modal amplitude
-            modalAmplitude = transpose(vecnorm(...
-                linearPhi\transpose(squeeze(Resp(:,2,:))),2,1)); 
+            % Modal amplitude and mass-normalized deflection shape
+            [modalAmplitude,Phi] = modalAmplitudeAndPhi(Resp,linearPhi);
 
-            % mass-normalized mode shape, Eq. 47 in [1]
-            Phi =  Resp./repmat(modalAmplitude,1,size(Resp,2),size(Resp,3));
-            Phi = Phi(:,2:end,:); % restrict to dynamic part
-            
-            % compute modal damping ratio according to Eq. 46 in [1]
+            % Modal damping ratio (Eq. 46 in [1])
             modalDampingRatio = ...
-                (real(Phi(:,1,indexSensorDrivePoint)).*abs(Exc(:,2))) ./...
+                (real(Phi(:,2,indexSensorDrivePoint)).*abs(Exc(:,2))) ./...
                 (2*(2*pi*frequency_Hz).^2 .* modalAmplitude);
 
-        case 'modelFree'
-            fprintf(['Computing damping ratio for the case of base '...
-                'excitation (model-free version).\n'])
-            fprintf(['Interpreting the sixth input as weights for '...
-                'integration.\n'])
-            weights = varargin{1};
-            % check dimension of weights
-            if size(weights,1)~=1 || size(weights,2)~=size(Resp,3)
-                error(['Weights must be given as row vector with '...
-                        'number of entries equals number of sensors.'])
-            end
-            % compute modal damping ratio according to Eq. 28 in [2]
-            IQ = weights*transpose(squeeze(Resp(:,2,:)));
-            IQQ = weights * transpose(abs(squeeze(Resp(:,2,:))).^2);
-            modalDampingRatio = 1/2*abs(IQ)./abs(IQQ).*abs(Exc(:,2).'); 
-            modalDampingRatio = transpose(modalDampingRatio);
-            
-            % optional: mass-normalize mode shapes
-            if length(varargin)==2
-                linearPhi = varargin{2};
-                if size(linearPhi,1) ~= size(Resp,3)
-                    error(['Number of sensors in linear mode shapes and '...
-                            'backbone measurement must match.'])
-                end
-                modalAmplitude = transpose(vecnorm(...
-                linearPhi\transpose(squeeze(Resp(:,2,:))),2,1)); 
-                % mass-normalized mode shape, Eq. 47 in [1]
-                Phi =  Resp./...
-                    repmat(modalAmplitude,1,size(Resp,2),size(Resp,3));
-                Phi = Phi(:,2:end,:); % restrict to dynamic part
-            else
-                Phi = [];
-                modalAmplitude = [];
-            end 
+        case 'base'
+            % Interpret Exc as base displacement (as opposed to
+            % acceleration)
+            fprintf(['Treating provided excitation as base ' ...
+                'displacement Fourier coefficients.\n']);
 
-        case 'modelBased'
-            fprintf(['Computing damping ratio for the case of base '...
-                'excitation (model-based version).\n'])
-            fprintf('Interpreting the sixth input as Phi_lin^H*M*b.\n')
-            PhiMb_lin = varargin{1};
-            % check dimension of mode shapes
-            if length(varargin)~=2
-                error(['Linear mass-normalized mode shapes are required'...
-                    ' must be provided as seventh input.'])
-            else
-               linearPhi = varargin{2}; 
-               if size(linearPhi,1) ~= size(Resp,3)
-                   error(['Number of sensors in linear mode shapes and '...
-                            'backbone measurement must match.'])
-               end
-            end
-            % check dimension of linearPhi^H*M*b
-            if size(PhiMb_lin,2)~=1 || size(PhiMb_lin,1)~=size(linearPhi,2)
-                error(['linearPhi^H*M*b must be a column vector with number'...
-                        ' of entries equals number of modes in linearPhi.'])
-            end
-            
-            Eta = linearPhi\transpose(squeeze(Resp(:,2,:)));
-            % Modal damping ratio (Eq. 14 in [2])
-            modalDampingRatio = 1/2*abs((Eta'*PhiMb_lin).*Exc(:,2))./...
-                ((2*pi*frequency_Hz).^2.*abs(diag(Eta'*Eta)));
+            % Interpret varargin{1} as model-based vs. model-free variant
+            % specifier
+            variant = varargin{1};
+            switch variant
+                case 'modelFree'
+                    % Interpret varargin{2} as weights
+                    weights = varargin{2}(:).';
 
-            modalAmplitude = vecnorm(Eta,2,1); 
-            % mass-normalized mode shape, Eq. 47 in [1]
-            Phi =  Resp./repmat(modalAmplitude,1,size(Resp,2),size(Resp,3));
-            Phi = Phi(:,2:end,:); % restrict to dynamic part
+                    % Check dimension of weights
+                    if size(weights,2)~=nSens
+                        error(['Number of elements in weights must equal '...
+                            'number of response sensors.']);
+                    end
+
+                    % Modal amplitude and mass-normalized deflection shape
+                    [modalAmplitude,Phi] = ...
+                        modalAmplitudeAndPhi(Resp,linearPhi);
+
+                    % Modal damping ratio (Eq. 28 in [2], where integrals
+                    % are approximated by numerical quadrature using
+                    % provided weights, and presuming that the response is
+                    % restricted to the direction of the base motion)
+                    IQ = weights*transpose(squeeze(Resp(:,2,:)));
+                    IQQ = weights * transpose(abs(squeeze(Resp(:,2,:))).^2);
+                    modalDampingRatio = 1/2*abs(conj(IQ(:)).*Exc(:,2))./...
+                        abs(IQQ(:));
+
+                case 'modelBased'
+                    % Interpret varargin{2} as quantity linearPhi'*M*b
+                    PhiMb_lin = varargin{2};
+
+                    % Check dimensions of PhiMb_lin
+                    if size(PhiMb_lin,2)~=1 || size(PhiMb_lin,1)~=nModes
+                        error(['PhiMb_lin must be a column vector with'...
+                            ' number of rows equal to number of ' ...
+                            'provided linear modes (' num2str(nModes) ...
+                            'here).']);
+                    end
+
+                    % Modal amplitude, mass-normalized deflection shape,
+                    % and contributions of linear modes to fundamental
+                    % harmonic
+                    [modalAmplitude,Phi,Eta1] = ...
+                        modalAmplitudeAndPhi(Resp,linearPhi);
+
+                    % Modal damping ratio (Eq. 18 in [2])
+                    modalDampingRatio = abs((Eta1'*PhiMb_lin).*Exc(:,2))./...
+                        (2*modalAmplitude.^2);
+
+                otherwise
+                    error(['Invalid specifier ' variant ' for ' ...
+                        'variant of modal parameter estimation ' ...
+                        'in case of base excitation']);
+            end
+        otherwise
+            error(['Allowed excitation type specifiers are ' ...
+                '[force|base]']);
     end
-    modalFrequency_Hz = frequency_Hz;
+end
+
+%% NESTED FUNCTION: modal amplitude, mass-normalized deflection shape, 
+% contributions of linear modes to fundamental harmonic
+function [modalAmplitude,Phi,Eta1] = modalAmplitudeAndPhi(Resp,linearPhi)
+
+% Handle empty linearPhi
+if isempty(linearPhi)
+    modalAmplitude = [];
+    Phi = [];
+    return;
+end
+
+% Fundamental Fourier coefficient vector of linear modal 
+% coordinates (Eq. 20 in [2])
+Eta1 = linearPhi\transpose(squeeze(Resp(:,2,:)));
+
+% Modal amplitude (from Eq. 9 and 17 in [2])
+modalAmplitude = vecnorm(Eta1,2,1);
+modalAmplitude = modalAmplitude(:);
+
+% % THIS YIELDS THE SAME AMPLITUDE
+% % Modal amplitude (Eq. 47 in [1])
+% modalAmplitude = transpose(vecnorm(...
+%     linearPhi\transpose(squeeze(Resp(:,2,:))),2,1));
+
+% Mass-normalized modal deflection shape (Eq. 48 in [1])
+Phi =  Resp ./ ...
+    repmat(modalAmplitude,1,size(Resp,2),size(Resp,3));
+
 end
