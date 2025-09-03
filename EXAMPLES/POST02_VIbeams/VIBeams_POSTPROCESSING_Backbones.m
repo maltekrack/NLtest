@@ -176,12 +176,12 @@ RelativeVelocity_m_s = RelativeVelocity_m_s(meetsPhaseTolerance,:,:);
 H = size(Excitation_m_s,2)-1; % number of harmonics
 RelativeDisplacement_m = RelativeVelocity_m_s ./ ...
     repmat((2*pi*frequency_Hz)*1i*(0:H),1,1,size(RelativeVelocity_m_s,3));
-% Base acceleration amplitude
-Aexc_m_s2 = (1i*(2*pi*frequency_Hz)*(0:H)).*Excitation_m_s;
+% Base displacement amplitude
+Qb_m = Excitation_m_s./(1i*(2*pi*frequency_Hz)*(0:H));
 
 [modalFrequency_Hz,modalDampingRatio] = ...
     estimateModalPropertiesFromBackbone(frequency_Hz,...
-    RelativeDisplacement_m,Aexc_m_s2,'modelBased',9,PhiMb_lin,Phibar_lin);
+    RelativeDisplacement_m,Qb_m,9,Phibar_lin,'base','modelBased',PhiMb_lin);
 
 % Loop over hold times
 E = zeros(size(Phibar_lin,2),H,size(Excitation_m_s,1));
