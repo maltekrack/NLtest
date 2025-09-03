@@ -171,7 +171,7 @@ Qb_m = Excitation_m_s./(1i*2*pi*frequency_Hz*(0:size(Excitation_m_s,2)-1));
 RelativeVelocity_m = RelativeVelocity_m_s./repmat(1i*2*pi*frequency_Hz*(0:size(Excitation_m_s,2)-1),1,1,size(RelativeVelocity_m_s,3));
 
 [modalFrequency_Hz,modalDampingRatio] = estimateModalPropertiesFromBackbone(frequency_Hz,RelativeVelocity_m,Qb_m,...
-    'modelFree',8,weightsTrapezoidal);
+    8,[],'base','modelFree',weightsTrapezoidal);
 
 %% ILLUSTRATE MODAL PROPERTIES (Figure 8 in [3])
 
