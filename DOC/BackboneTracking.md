@@ -254,7 +254,7 @@ A working controller settles reasonably fast to a state of low phase lag errors 
 
 ### Violation of assumptions underlying theory-driven control design
 The *Backbone Tracker* uses the theory-driven method proposed in [Hippold.2024] for selecting the gains of the proportional-integral controllers. If the simplifying assumptions underlying that theory are violated, the controller cannot be expected to work well. In the following, those assumptions stated, along with instructions how to check their validity, and what to do should they be violated.
-- **Phase-neutral exciter**: A first way to check this assumption is to inspect the frequency response function from exciter input voltage to applied force, which is obtained in the course of [identifying the linear SUT and plant](#identify-linear-sut-and-plant). The phase shift should be close to zero throughout the frequency range of the test. However, in our experience good control performance can be achieved for phase shifts up to 20°. A second way to check phase-neutrality is during backbone tracking or in the post-processing by directly monitoring the phase lag of the applied force compared to the voltage, i.e., the angle of the fundamental Fourier coefficient of the applied force as computed by the adaptive filter. To come closer to phase-neutral excitation, in the case of force excitation, one can try to adjust the exciter configuration in such a way that a lower exciter-structure mass ratio is achieved. More specifically, the exciter's moving mass should be as low as possible, and it should be attached to a point with relatively small displacement (if other practical constraints permit this). As alternative, a manual adjustment of the controller gains might improve the control performance, see [Strategy for manual re-tuning](#strategy-for-manual-re-tuning).
+- **Phase-neutral exciter**: A first way to check this assumption is to inspect the frequency response function from exciter input voltage to applied force, which is obtained in the course of [identifying the linear SUT and plant](#identify-linear-structure-under-test-and-plant). The phase shift should be close to zero throughout the frequency range of the test. However, in our experience good control performance can be achieved for phase shifts up to 20°. A second way to check phase-neutrality is during backbone tracking or in the post-processing by directly monitoring the phase lag of the applied force compared to the voltage, i.e., the angle of the fundamental Fourier coefficient of the applied force as computed by the adaptive filter. To come closer to phase-neutral excitation, in the case of force excitation, one can try to adjust the exciter configuration in such a way that a lower exciter-structure mass ratio is achieved. More specifically, the exciter's moving mass should be as low as possible, and it should be attached to a point with relatively small displacement (if other practical constraints permit this). As alternative, a manual adjustment of the controller gains might improve the control performance, see [Strategy for manual re-tuning](#strategy-for-manual-re-tuning).
 - **Single Nonlinear Mode Theory**: The target modal frequency must be well-separated and away from any internal resonance condition. Hence, a first check of this non-resonance condition can be done by inspecting the linear modal frequencies. If the non-resonance condition does not hold, strong modal interactions may occur. Thus, another check involves the inspection of the contributions $E(m,h)$ to the mechanical energy of mode $m$ and harmonic $h$. If there is a $1:3$ internal resonance between a target mode 1 and mode 2, one would expect a steep increase of $E(2,3)$ for sufficiently high vibration levels. The script `'EXAMPLES/BT02_realExperiment/PostprocessingRealExperiment.m'` estimates these contributions and identify the most important ones from data acquired during backbone tracking. Only if the non-resonance condition holds, the structure behaves like a single nonlinear modal oscillator, so that one can achieve phase resonance with a single exciter, and restricting the control to the fundamental harmonic. Thus, beyond the onset of a resonant modal interaction, no meaningful amplitude-dependent modal parameters can be obtained from the phase-resonant backbone, and the phase-resonant backbone will be highly sensitive to the drive point. If the purpose of the test is to specifically analyze modal interactions, one should consider doing frequency-response tests instead of (or in addition to) a backbone test. See also [Woiwode.2024].
 - **Design for linear regime**: In [Hippold.2024], it was proposed to design the control parameters for the low-level regime of the structure under test, and to use these constant parameters throughout the backbone. Consequently, sub-optimal performance is expected at higher vibration levels in the nonlinear regime. If a resonant modal interaction has been ruled out, manual re-tuning may counter poor control performance, see [Strategy for manual re-tuning](#strategy-for-manual-re-tuning). The extension of the control design method to the nonlinear regime is currently under research.
 - **Asymptotic behavior around locked state**: The proposed control design method relies on a linearization of the equations governing the closed loop behavior around the locked state (zero-mean control errors). If the initial condition is far from the locked state, sub-optimal performance is expected. In practice, this may happen if the initial excitation level is too high leading to strongly nonlinear behavior, so that the initial frequency (linear modal frequency on default) is far from the modal frequency at that level. In that case, a lower initial excitation level should be considered. Poor initial conditions may also arise when taking too large steps along the backbone, in which case the step size within the excitation level profile should be reduced.
@@ -358,11 +358,11 @@ This section describes the mathematical model underlying the virtual experiment 
 ### Model of the structure under test
  The structure under test is modelled as a finite element model of an Euler-Bernoulli beam with specified length, cross section, mass density and Young's modulus. The nonlinearity takes the form of an elastic Coulomb dry friction element with specified stiffness and friction limit force, which is attached to one node in the translational (bending) direction. As is common practice in nonlinear vibration analysis, the model order is reduced using the Hurty/Craig-Bampton method. A number of fixed-interface normal modes is retained, along with the static constraint mode associated with the translational degree of freedom of the node to which the friction element is attached. Linear viscous modal damping is specified. The equations governing the dynamics of the reduced-order model can be expressed as
 
-$$
-\boldsymbol{M}_\mathrm{red} \ddot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{D}_\mathrm{red} \dot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{K}_\mathrm{red} \boldsymbol{q}_\mathrm{red} + \boldsymbol{w}_\mathrm{nl,red} f_\mathrm{nl} = \boldsymbol{w}_\mathrm{ex,red} f_\mathrm{ex} \tag{1}
-$$
-
-with $\boldsymbol{M}_\mathrm{red}$, $\boldsymbol{D}_\mathrm{red}$, $\boldsymbol{K}_\mathrm{red}$ being the linear mass, damping, and stiffness matrices in reduced-order coordinates, respectively. $\boldsymbol{w}_\mathrm{nl,red}$ is the localization vector in reduced-order coordinates for the nonlinear force $f_\mathrm{nl}$. $\boldsymbol{w}_\mathrm{ex,red}$ is the localization vector in reduced-order coordinates for the external force $f_\mathrm{ex}$.
+```math
+\boldsymbol{M}_\mathrm{red} \ddot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{D}_\mathrm{red} \dot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{K}_\mathrm{red} \boldsymbol{q}_\mathrm{red} + \boldsymbol{w}_\mathrm{nl,red} f_\mathrm{nl} = \boldsymbol{w}_\mathrm{ex,red} f_\mathrm{ex}
+\hspace{1cm}\mathrm{(1)}
+```
+with $`\boldsymbol{M}_\mathrm{red}`$, $`\boldsymbol{D}_\mathrm{red}`$, $`\boldsymbol{K}_\mathrm{red}`$ being the linear mass, damping, and stiffness matrices in reduced-order coordinates, respectively. $`\boldsymbol{w}_\mathrm{nl,red}`$ is the localization vector in reduced-order coordinates for the nonlinear force $`f_\mathrm{nl}`$. $`\boldsymbol{w}_\mathrm{ex,red}`$ is the localization vector in reduced-order coordinates for the external force $`f_\mathrm{ex}`$.
 
 To set up the Euler-Bernoulli beam model and to perform the model order reduction, functionalities of NLvib [GitHub.NLvib, Krack.2019] are used in the advanced version of the virtual experiment. If the required NLvib files are not present on the Matlab path, pre-computed structural matrices of the reduced-order model are loaded from a file.
 
@@ -370,52 +370,52 @@ To set up the Euler-Bernoulli beam model and to perform the model order reductio
 
 In the advanced version of the virtual experiment, the exciter is modelled as a spring-mass-damper system with electric circuit (see e.g. [Hippold.2024]). The exciter is described by the differential equation
 
-$$
-\ddot{q}_\mathrm{ex} + 2 \zeta_\mathrm{ex} \omega_\mathrm{ex} \dot{q}_\mathrm{ex} + \omega_\mathrm{ex}^2 q_\mathrm{ex} = \frac{1}{m_\mathrm{ex}} \left( \frac{G}{R} u(t) - f_\mathrm{ex} \right) \tag{2}
-$$
+```math
+\ddot{q}_\mathrm{ex} + 2 \zeta_\mathrm{ex} \omega_\mathrm{ex} \dot{q}_\mathrm{ex} + \omega_\mathrm{ex}^2 q_\mathrm{ex} = \frac{1}{m_\mathrm{ex}} \left( \frac{G}{R} u(t) - f_\mathrm{ex} \right) \hspace{1cm}\mathrm{(2)}
+```
 
-with the moving mass $m_\mathrm{ex}$, the exciter natural frequency $\omega_\mathrm{ex}$, and the exciter damping ratio $\zeta_\mathrm{ex}$. $G$ is the exciter's electromotive force constant and $R$ the resistance of the coil. The input voltage is denoted $u(t)$ and is explicitly time dependent. The parameters in the example are chosen to match a Brüel & Kjaer exciter type 4809 with maximum forcing of 45 N.
+with the moving mass $`m_\mathrm{ex}`$, the exciter natural frequency $`\omega_\mathrm{ex}`$, and the exciter damping ratio $`\zeta_\mathrm{ex}`$. $`G`$ is the exciter's electromotive force constant and $`R`$ the resistance of the coil. The input voltage is denoted $`u(t)`$ and is explicitly time dependent. The parameters in the example are chosen to match a Brüel & Kjaer exciter type 4809 with maximum forcing of 45 N.
 The coupling between exciter and structure is assumed to be rigid. Therefore, the armature displacement is
 
-$$
-q_\mathrm{ex} = \boldsymbol{w}_\mathrm{ex,red}^\top \boldsymbol{q}_\mathrm{red} \,. \tag{3}
-$$
+```math
+q_\mathrm{ex} = \boldsymbol{w}_\mathrm{ex,red}^\top \boldsymbol{q}_\mathrm{red} \,. \hspace{1cm}\mathrm{(3)}
+```
 
 ### State-space model of the plant
 
 The model is transformed to first-order state-space form. The states are the displacements and velocities in reduced-order coordinates,
 
-$$
-\boldsymbol{x} = \begin{bmatrix} \boldsymbol{q}_\mathrm{red} \\ \dot{\boldsymbol{q}}_\mathrm{red} \end{bmatrix} \,. \tag{4}
-$$
+```math
+\boldsymbol{x} = \begin{bmatrix} \boldsymbol{q}_\mathrm{red} \\ \dot{\boldsymbol{q}}_\mathrm{red} \end{bmatrix} \,. \hspace{1cm}\mathrm{(4)}
+```
 
-The input is the shaker input voltage $u(t)$. The outputs are the translational responses at the sensor nodes (in terms of displacements, velocities or accelerations) and the excitation force resulting from the coupled shaker-structure system.
+The input is the shaker input voltage $`u(t)`$. The outputs are the translational responses at the sensor nodes (in terms of displacements, velocities or accelerations) and the excitation force resulting from the coupled shaker-structure system.
 
  To obtain the differential equation governing the states, the excitation force in Eq. (1) is eliminated by substituting Eqs. (2) and (3). This results in
 
-$$
-\boldsymbol{M}_\mathrm{c} \ddot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{D}_\mathrm{c} \dot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{K}_\mathrm{c} \boldsymbol{q}_\mathrm{red} + \boldsymbol{w}_\mathrm{nl,red} f_\mathrm{nl} = \boldsymbol{w}_\mathrm{ex,red} \frac{G}{R} u(t) \tag{5}
-$$
+```math
+\boldsymbol{M}_\mathrm{c} \ddot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{D}_\mathrm{c} \dot{\boldsymbol{q}}_\mathrm{red} + \boldsymbol{K}_\mathrm{c} \boldsymbol{q}_\mathrm{red} + \boldsymbol{w}_\mathrm{nl,red} f_\mathrm{nl} = \boldsymbol{w}_\mathrm{ex,red} \frac{G}{R} u(t) \hspace{1cm}\mathrm{(5)}
+```
 
 with
 
-$$
+```math
 \begin{align*}
 \boldsymbol{M}_\mathrm{c} &= \boldsymbol{M}_\mathrm{red} + \boldsymbol{w}_\mathrm{ex,red} m_\mathrm{ex} \boldsymbol{w}_\mathrm{ex,red}^\top \\
 \boldsymbol{D}_\mathrm{c} &= \boldsymbol{D}_\mathrm{red} + \boldsymbol{w}_\mathrm{ex,red} 2 \zeta_\mathrm{ex} \omega_\mathrm{ex} m_\mathrm{ex} \boldsymbol{w}_\mathrm{ex,red}^\top \\
 \boldsymbol{K}_\mathrm{c} &= \boldsymbol{K}_\mathrm{red} + \boldsymbol{w}_\mathrm{ex,red} \omega_\mathrm{ex}^2 m_\mathrm{ex} \boldsymbol{w}_\mathrm{ex,red}^\top \,.
 \end{align*}
-$$
+```
 
 Eq. (5) can be brought to the first-order form
 
-$$
-\dot{\boldsymbol{x}} = \boldsymbol{A}\boldsymbol{x} + \boldsymbol{B}_\mathrm{nl} f_\mathrm{nl}(\boldsymbol{x})+ \boldsymbol{B} u(t) \tag{6}
-$$
+```math
+\dot{\boldsymbol{x}} = \boldsymbol{A}\boldsymbol{x} + \boldsymbol{B}_\mathrm{nl} f_\mathrm{nl}(\boldsymbol{x})+ \boldsymbol{B} u(t) \hspace{1cm}\mathrm{(6)}
+```
 
 with
 
-$$
+```math
 \begin{align*}
 \boldsymbol{A} &=
 \begin{bmatrix}
@@ -431,17 +431,17 @@ $$
 \boldsymbol{0} \\ \boldsymbol{M}_\mathrm{c}^{-1}\boldsymbol{w}_\mathrm{ex,red} \frac{G}{R}
 \end{bmatrix} \,.
 \end{align*}
-$$
+```
 
 To obtain the measurement equation for the excitation force, the armature acceleration in Eq. (2) is eliminated using Eqs. (1) and (3) resulting in
 
-$$
-f_\mathrm{ex} = \boldsymbol{C}_\mathrm{f} \boldsymbol{x} + C_\mathrm{fnl} f_\mathrm{nl} + Du(t) \tag{7}
-$$
+```math
+f_\mathrm{ex} = \boldsymbol{C}_\mathrm{f} \boldsymbol{x} + C_\mathrm{fnl} f_\mathrm{nl} + Du(t) \hspace{1cm}\mathrm{(7)}
+```
 
 with
 
-$$
+```math
 \begin{align*}
 \boldsymbol{C}_\mathrm{f} &=
 \begin{bmatrix}
@@ -451,7 +451,7 @@ m_\mathrm{ex} \left( \boldsymbol{w}_\mathrm{ex,red}^\top \boldsymbol{M}_\mathrm{
 C_\mathrm{fnl} &= m_\mathrm{ex} \boldsymbol{w}_\mathrm{ex,red}^\top \boldsymbol{M}_\mathrm{c}^{-1} \boldsymbol{w}_\mathrm{nl,red} \,, \\
 D &= \left( 1 - m_\mathrm{ex} \boldsymbol{w}_\mathrm{ex,red}^\top \boldsymbol{M}_\mathrm{c}^{-1} \boldsymbol{w}_\mathrm{ex,red} \right) \frac{G}{R} \,.
 \end{align*}
-$$
+```
 
 ## References
 
