@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Krack"
+  given-names: "Malte"
+  orcid: "https://orcid.org/0000-0001-7154-1160"
+- family-names: "Scheel"
+  given-names: "Maren"
+  orcid: "https://orcid.org/0000-0001-5715-2812"
+title: "NLtest"
+version: 1.0
+date-released: 2025-07-30
+url: "https://github.com/maltekrack/NLtest"
