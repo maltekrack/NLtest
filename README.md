@@ -18,7 +18,7 @@ Once phase resonance is achieved at the (first) backbone point on, a stepwise in
 As a variant, the tool features stepping the response amplitude (in contrast to stepping the input voltage) using an additional amplitude control loop.
 The tool largely relies on the theory described in [Hippold.2024].
 
-The tool is limited to primary resonances driven by force excitation. An extension towards base excitation, and a combination with the iteration-free excitation harmonization from [Hippold.2025] are planned.
+The tool is limited to primary resonances driven by either force or base excitation.
 To run real tests on physical experiments, the tool relies on dSPACE hardware in its present form. But a transfer to other environments seems feasible.
 
 To get started with the *Backbone Tracker*, please see `'DOC/BackboneTracking.md'`.
