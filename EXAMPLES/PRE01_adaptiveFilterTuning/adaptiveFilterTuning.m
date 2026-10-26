@@ -86,7 +86,7 @@ addpath('../../SRC/');
 % Trial cutoff frequencies relative to the excitation frequency
 % HINT: Extend the example range and/or refine, keeping in mind what was 
 % expained above in the header.
-omLP_relative = [1/20, 1/10, 1/8];
+omLP_relative = [1/100, 1/50, 1/20];
 
 % Hrmonic order of the filter
 % NOTE: The open-loop test is at low excitation level. Hence, no 
@@ -114,14 +114,14 @@ options = struct('computeFourierCoefficients', 'adaptiveFilter', ...
     periodsInTolerance);
 
 %% Load measurement data and specify initial part to be ignored
-timeStampData = '2025_07_16-13_35';
+timeStampData = '2025_08_12-14_40';
 BASEFOLDER = 'DATA';
 fileNameMeasurementData = sprintf('measurement_%s',timeStampData);
 load([BASEFOLDER filesep fileNameMeasurementData],'measurement');
 
 % Specify number of initial periods to be ignored before checking the phase
 % fluctuation tolerance.
-nPeriodsSettling = 500;
+nPeriodsSettling = 2000;
 
 %% Check user input, select required section of time series
 

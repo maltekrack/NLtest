@@ -82,14 +82,25 @@ settings.indexTargetMode = idxTargetMode;
 % "defineRubberAdvancedAndDoNumericalNMA".
 settings.responseQuantity = responseQuantity;
 settings.indexSensorDrivePoint = idxDrivePoint;
+settings.indexSensorControl = idxDrivePoint;
+
+% Set excitation quantity to 'force'.
+settings.excitationQuantity = 'force';
 
 % Extract parameters of target mode.
-linearModalFrequency_Hz = LMA_SUT.linearModalFrequency_Hz(idxTargetMode);
-linearPlantFrequency_Hz = LMA_plant.linearPlantFrequency_Hz(idxTargetMode);
-linearModalDampingRatio = LMA_SUT.linearModalDampingRatio(idxTargetMode);
-linearPlantDampingRatio = LMA_plant.linearPlantDampingRatio(idxTargetMode);
-linearPhiEx = LMA_SUT.linearPhi(idxDrivePoint,idxTargetMode);
-linearPlantPhiEx = LMA_plant.linearPlantPhi(idxDrivePoint,idxTargetMode);
+settings.linearModalFrequency_Hz = LMA_SUT.linearModalFrequency_Hz(idxTargetMode);
+settings.linearPlantFrequency_Hz = LMA_plant.linearPlantFrequency_Hz(idxTargetMode);
+settings.linearModalDampingRatio = LMA_SUT.linearModalDampingRatio(idxTargetMode);
+settings.linearPlantDampingRatio = LMA_plant.linearPlantDampingRatio(idxTargetMode);
+% The sensor used for control (index c) is collocated with the drive point.
+% Therefore, only one set of mode shape entries (for SUT and plant) is
+% required. In case of a non-collocated response measurement, a second set
+% (index ex) is required (cf. SRC/checkSettingsBackboneTracker.m).
+settings.linearPhiC = LMA_SUT.linearPhi(settings.indexSensorControl,idxTargetMode);
+settings.linearPlantPhiC = LMA_plant.linearPlantPhi(settings.indexSensorControl,idxTargetMode);
+
+% Store exciter mass in settings struct
+settings.exciterMass_kg = exciterMass_kg;
 
 %% Specify backbone stepping
 
@@ -119,22 +130,18 @@ settings.levels = linspace(lowestLevel,highestLevel,numberOfLevels);
 % NOTE: Since all signals are noise free in this virtual test, the 
 % cutoff frequency can be varied in a wide range. A typical value is used
 % here.
-settings.omLP = linearModalFrequency_Hz*2*pi / 10;
+settings.omLP = settings.linearModalFrequency_Hz*2*pi / 10;
 % NOTE: In experimental practice, the harmonic order can be limited by the
 % hardware running the controller. Here, the same value as for the Harmonic
-% Balance compuutation of the numerical reference is used.
+% Balance computation of the numerical reference is used.
 settings.H = 7;
 
 %% Check settings (and add any unspecified ones by default values)
-settings = checkSettingsBackboneTracker(settings, linearPlantFrequency_Hz, ...
-    linearPlantDampingRatio, linearPlantPhiEx, exciterMass_kg, ...
-    linearModalFrequency_Hz, linearPhiEx);
+settings = checkSettingsBackboneTracker(settings);
+
 %% Select control gains in a theory-driven way
 [settings.gainsPhaseController, settings.gainsAmplitudeController] = ...
-    controllerDesignBackboneTracker(settings.omLP,...
-    linearModalFrequency_Hz, linearModalDampingRatio, linearPhiEx, ...
-    linearPlantFrequency_Hz, linearPlantDampingRatio, linearPlantPhiEx, ...
-    exciterMass_kg);
+    controllerDesignBackboneTracker(settings);
 % If you want to adjust the control gains, do it here.
 % settings.gainsPhaseController.kp = ...
 % settings.gainsPhaseController.ki = ...
@@ -184,7 +191,8 @@ postProcessingOptions.omLP = settings.omLP;
     measurement.excitation,measurement.responses,measurement.flagSettling,...
     postProcessingOptions,measurement.excitationPhase_rad);
 
-% Determine order of highest estimated harmonic.
+% Determine order of highest estimated harmonic (required if order is not
+% set by user in case of FFT processing).
 H = size(Excitation,2)-1;
 
 % Convert all responses to displacement unit ('_m' refers to meter) in the
@@ -208,7 +216,7 @@ for iResponse = 1:size(Response,3)
             % Zeroth harmonic cannot be retrieved.
             Response_m(:,1,iResponse) = NaN(size(frequency_Hz)); 
         otherwise
-            error(['Unknowns response quantity specifier ' ...
+            error(['Unknown response quantity specifier ' ...
                 responseQuantity{iResponse}]);
     end
 end

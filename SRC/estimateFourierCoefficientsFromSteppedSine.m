@@ -72,7 +72,7 @@
 %   instFreq                instantaneous frequency in Hz  n x 1 double
 %   exc                     excitation time series         n x 1 double
 %   resp                    response time series           n x nSens double
-%   flagSettling            indicates hold phases          n x 1 double
+%   flagSettling            indicates recording phases     n x 1 double
 %   opt		                options                        structure
 %      FIELD NAMES
 %      computeFourier...    'adaptiveFilter' or            string
@@ -249,18 +249,18 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
     
     %% Define hold phases
 
-    % Determine start and end time instants of hold phases
-    holdSTART = time(diff(flagSettling)>0);
-    holdEND = time(diff(flagSettling)<0);
+    % Determine start and end time instants of recording phases
+    recordSTART = time(diff(flagSettling)>0);
+    recordEND = time(diff(flagSettling)<0);
 
-    % Check if all hold phases have start and end
-    if numel(holdSTART)~=numel(holdEND) || holdSTART(1)>holdEND(1)
-        error(['Each hold phase (indicated by flagSettling true) ' ...
+    % Check if all record phases have start and end
+    if numel(recordSTART)~=numel(recordEND) || recordSTART(1)>recordEND(1)
+        error(['Each recording phase (indicated by flagSettling true) ' ...
             'must have a start and an end in the provided time span.']);
     end
 
     % Store time intervals of hold phases
-    holdPhase = [holdSTART holdEND];
+    recordPhase = [recordSTART recordEND];
 
     %% Determine sampling and ensure equidistant sampling
     dt = mean(diff(time));
@@ -298,18 +298,18 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
             'conducted.\n']);
     end
     
-    %% Determine end of hold phases with resampled time vector
-    [~,idxLast] = min(abs(repmat(time,[1 length(holdPhase(:,2))])...
-        - holdPhase(:,2).'));
-    numHoldPhases = length(idxLast);
+    %% Determine end of recording phases with resampled time vector
+    [~,idxLast] = min(abs(repmat(time,[1 length(recordPhase(:,2))])...
+        - recordPhase(:,2).'));
+    numRecordPhases = length(idxLast);
     
-    %% Determine Fourier coefficients and evaluate in each hold phase
+    %% Determine Fourier coefficients and evaluate in each recording phase
 
     % Initialize output
-    freq = zeros(numHoldPhases,1);
-    EXC = zeros(numHoldPhases,opt.H+1);
-    RESP = zeros(numHoldPhases,opt.H+1,size(resp,2));
-    indPROCESS = false(numHoldPhases,n);
+    freq = zeros(numRecordPhases,1);
+    EXC = zeros(numRecordPhases,opt.H+1);
+    RESP = zeros(numRecordPhases,opt.H+1,size(resp,2));
+    indPROCESS = false(numRecordPhases,n);
 
     switch opt.computeFourierCoefficients 
         case 'adaptiveFilter'
@@ -335,29 +335,29 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
 
     end
             
-    % Loop over hold phases
-    for ihold=1:numHoldPhases
+    % Loop over recording phases
+    for irecord=1:numRecordPhases
 
         % Estimate frequency and determine samples to be processed
         [isToBeProcessed,estimatedFrequency] = ...
             estimateFrequencyAnddetermineSamplesToBeProcessed(time,...
-            instFreq,instPhase,holdPhase(ihold,:),opt);
+            instFreq,instPhase,recordPhase(irecord,:),opt);
            
-        % Determine Fourier coefficients for each hold phase 
+        % Determine Fourier coefficients for each recording phase 
         switch opt.computeFourierCoefficients
             case 'adaptiveFilter'
                 % Determine Fourier coefficients as mean over adaptive
                 % filter output
-                EXC(ihold,:) = mean(exc_FC(isToBeProcessed,:));
+                EXC(irecord,:) = mean(exc_FC(isToBeProcessed,:));
                 if size(resp_FC,3)==1
-                    RESP(ihold,:,:) = ...
+                    RESP(irecord,:,:) = ...
                         mean(resp_FC(isToBeProcessed,:,:));
                 else
-                    RESP(ihold,:,:) = ...
+                    RESP(irecord,:,:) = ...
                         squeeze(mean(resp_FC(isToBeProcessed,:,:)));
                 end
             case 'FFT'
-                % Apply FFT to each hold phase
+                % Apply FFT to each recording phase
                 
                 % Select and concatenate time series
                 timeSeries = [exc(isToBeProcessed) resp(isToBeProcessed,:)];
@@ -368,8 +368,8 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
                     estimatedFrequency,opt.H);
 
                 % Store Fourier coefficients
-                EXC(ihold,:) = FourierCoefficients(:,1);
-                RESP(ihold,:,:) = ...
+                EXC(irecord,:) = FourierCoefficients(:,1);
+                RESP(irecord,:,:) = ...
                     FourierCoefficients(:,1+(1:size(resp,2)));
 
                 % In case of FFT, no instantaneous estimate of the Fourier
@@ -381,27 +381,34 @@ function [freq,EXC,RESP,indPROCESS,time,instFreq,exc,resp,instPhase,...
         end
 
         % Store indices of selected samples and estimated frequency
-        indPROCESS(ihold,:) = isToBeProcessed;
-        freq(ihold) = estimatedFrequency;
+        indPROCESS(irecord,:) = isToBeProcessed;
+        freq(irecord) = estimatedFrequency;
 
         % Diagnostic information on signal processing
-        if ihold==1 || ihold==numHoldPhases
-            n_samp = sum(indPROCESS(ihold,:));
-            np_hold = (holdPhase(ihold,2)-holdPhase(ihold,1))*freq(ihold);
-            np_eval = n_samp*dt*freq(ihold);
-            if ihold==1
-                fprintf(['Information on estimation of excitation frequency'...
-                    ' and Fourier coefficients in FIRST hold phase:\n']);
-            else
-                fprintf(['Information on estimation of excitation frequency'...
-                    ' and Fourier coefficients in LAST hold phase:\n']);
-            end
-            fprintf(['     Portion of hold phase used:         ' ...
-                num2str(1e2*np_eval/np_hold) '%%.\n']);
-            fprintf(['     Number of samples used per period:  ' ...
-                num2str(round(n_samp/np_eval)) '.\n']);
+        np_record = (recordPhase(irecord,2)-recordPhase(irecord,1))*...
+            freq(irecord);
+        np_eval = sum(indPROCESS(irecord,:))*dt*freq(irecord);
+        if round(np_eval) > round(np_record)
+            warning(['The number of periods used for analysis is higher '...
+                'than in recorded number of periods for backbone point ', ...
+                num2str(irecord), '.'])
         end
-
+        if irecord==1 || irecord==numRecordPhases
+            switch opt.computeFourierCoefficients
+                case 'FFT'
+                    deltaFreq = 1/(dt*sum(indPROCESS(irecord,:)));
+                    if irecord==1
+                        fprintf(['The frequency resolution of the FFT '...
+                            'spectrum in FIRST hold phase is: ',...
+                            num2str(deltaFreq), ' Hz.\n']);
+                    else
+                        fprintf(['The frequency resolution of the FFT '...
+                            'spectrum in LAST hold phase is: ',...
+                            num2str(deltaFreq), ' Hz.\n']);
+                    end
+                otherwise
+            end
+        end
     end
 end
 %% NESTED FUNCTION: adaptive filter

@@ -289,7 +289,7 @@ backbone = load('results/Backbone_3.mat');
 freq = backbone.modalFrequency_Hz;
 backbone.Response_m_s_1H = NaN(length(freq),1);
 for iHold = 1:length(freq)
-    backbone.Response_m_s_1H(iHold) = backbone.Response_m_s{iHold}(2);
+    backbone.Response_m_s_1H(iHold) = backbone.Response_m_s(iHold,2);
 end
 aresp = abs(backbone.Response_m_s_1H./(1i*2*pi*freq));
 phase = angle(backbone.Response_m_s_1H./...

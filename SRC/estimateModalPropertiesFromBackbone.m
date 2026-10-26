@@ -245,8 +245,13 @@ function [modalFrequency_Hz,modalDampingRatio,Phi,modalAmplitude,...
                     % are approximated by numerical quadrature using
                     % provided weights, and presuming that the response is
                     % restricted to the direction of the base motion)
-                    IQ = weights*transpose(squeeze(Resp(:,2,:)));
-                    IQQ = weights * transpose(abs(squeeze(Resp(:,2,:))).^2);
+                    if nBBP == 1
+                        IQ = weights * squeeze(Resp(:,2,:));
+                        IQQ = weights * abs(squeeze(Resp(:,2,:))).^2;
+                    else
+                        IQ = weights * transpose(squeeze(Resp(:,2,:)));
+                        IQQ = weights * transpose(abs(squeeze(Resp(:,2,:))).^2);
+                    end
                     modalDampingRatio = 1/2*abs(conj(IQ(:)).*Exc(:,2))./...
                         abs(IQQ(:));
 
@@ -296,7 +301,12 @@ end
 
 % Fundamental Fourier coefficient vector of linear modal 
 % coordinates (Eq. 20 in [2])
-Eta1 = linearPhi\transpose(squeeze(Resp(:,2,:)));
+if size(Resp,1) == 1
+    Eta1 = linearPhi\squeeze(Resp(:,2,:));
+else
+    Eta1 = linearPhi\transpose(squeeze(Resp(:,2,:)));
+end
+
 
 % Modal amplitude (from Eq. 9 and 17 in [2])
 modalAmplitude = vecnorm(Eta1,2,1);

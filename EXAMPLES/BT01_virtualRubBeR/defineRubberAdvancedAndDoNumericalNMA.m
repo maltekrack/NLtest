@@ -37,6 +37,14 @@
 %   virtualRubber         contains matrices and           struct
 %                            parameters needed 
 %                            for Simulink model
+%       FIELD NAMES
+%         A, B, B_nl, ...    state-space matrices
+%           C_va, C_d, ...
+%           C_f, C_fnl, D
+%         T_nl,              localization matrices
+%         kt, muN,           parameters of the nonlinearity
+%         sensorMatrix       boolean sensor locations
+%
 %   responseQuantity      quantity measured by each       1 x 7 cell
 %                            sensor node                    array
 %                            (i.e. 'acceleration', 
@@ -224,13 +232,13 @@ function [virtualRubber, responseQuantity, indexSensorDrivePoint, ...
     philin = Phi(:,indexTargetMode);
     Psi = zeros((2*H+1)*n,1);
     Psi(n+(1:n)) = philin;
-    x0 = [Psi;omlin;0];
+    x0 = [Psi;omlin;zeta_lin(indexTargetMode)];
 
     % Set continuation and preconditioning options, call solve and continue
-    ds = .01;
+    ds = .005;
     psiscl = max(abs((Psi)));
     Sopt = struct('flag',1,'stepadapt',1,'dynamicDscale',1,...
-        'Dscale',[1e-0*psiscl*ones(size(Psi));...
+        'Dscale',[0.1e0*psiscl*ones(size(Psi));...
         om(indexTargetMode);1e-1;1e0]);
     fscl = mean(abs(ROM.K*philin));
     X_NM = solve_and_continue(x0,...
@@ -263,7 +271,7 @@ function [virtualRubber, responseQuantity, indexSensorDrivePoint, ...
     % exciter damping ratio
     zeta_ex = (d_ex + G^2/R) / (2*exciterMass*om_ex); 
     % exciter/structure mass ratio
-    mu_ex = (linearSUTModes.linearPhi(indexSensorDrivePoint,:).^2).' * ...
+    mu_ex = (linearSUTModes.linearPhi(indexSensorDrivePoint,:).^2) * ...
         exciterMass; 
     
     % Mimick experimental linear modal analysis of plant by storing 
@@ -277,7 +285,7 @@ function [virtualRubber, responseQuantity, indexSensorDrivePoint, ...
     linearPlantModes.linearPlantPhi = sqrt( linearSUTModes.linearPhi .* ...
         repmat(linearSUTModes.linearPhi(indexSensorDrivePoint,:),...
         numberOfSensors,1) ...
-        .* G ./ (R*(1+mu_ex.')) );
+        .* G ./ (R*(1+mu_ex)) );
 
     %% Set up state-space model of virtual plant
     % states: [generalized displacement; gen. velocity] (reduced model)

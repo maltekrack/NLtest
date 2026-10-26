@@ -4,56 +4,46 @@
 % integral gains for phase control (PLL) and response amplitude control of 
 % a structure driven by an electrodynamic shaker.
 % 
-% The input comprises the cutoff frequency of the adaptive filter,
-% linear modal parameters of the structure under test (SUT) and the plant
-% with regard to the target mode, and the exciter moving mass, see 
-% DOC/BackboneTracking.md. If no plant properties are provided, an ideal 
-% exciter is assumed (zero moving mass; plant modal parameters identical 
-% to that of SUT).
-% 
 % The methodology is described in [1], and equation numbers in the comments
 % correspond to that reference. The underlying assumptions are stated in
 % DOC/BackboneTracking.md under 'What to do if the controller does not
 % work?', together with instructions how to check their validity, and means
 % to counter them. 
 % 
-% The design of the response amplitude control is not published yet.
+% The gain design strategy utilizes the cutoff frequency of the adaptive 
+% filter, linear modal parameters of the structure under test (SUT) and the 
+% plant with regard to the target mode, and the exciter moving mass (see 
+% DOC/BackboneTracking.md). If no SUT properties are provided upon initial
+% population of the settings structure (see checkSettingsBackboneTracker.m),
+% an ideal exciter is assumed (zero moving mass; plant modal parameters 
+% identical to that of SUT).
+% 
 % The 'conservative' option of the phase control design can be useful
 % if increased fluctuations of the phase lag error are observed in 
 % conjunction with response amplitude control. Compared to the 'optimal'
 % (default) setting, this is expected to come at the cost of a longer 
 % phase settling duration.
 % 
-% MANDATORY INPUT
+% INPUT
 %   VARIABLE                    MEANING                         TYPE
-%   omLP                        equivalent cutoff frequency of  1x1 double
-%                               adaptive filter in rad/s
-%   linearModalFrequency_Hz     linear modal frequency of       1x1 double
-%                               SUT in Hz
-%   linearModalDampingRatio     linear modal damping ratio      1x1 double
-%                               of SUT
-%   linearPhiEx                 linear mass-normalized mode     1x1 double
-%                               shape of SUT at drive point
-% OPTIONAL INPUT
-%   linearPlantFrequency_Hz     linear modal frequency of       1x1 double
-%                               plant in Hz
-%   linearPlantDampingRatio     linear modal damping ratio      1x1 double
-%                               of plant
-%   linearPlantPhiEx            linear mass-normalized mode     1x1 double
-%                               shape of plant at drive point
-%   exciterMass_kg              mass of moving parts of exciter 1x1 double
-%                               in kg
+%   settings                    structure with settings for     struct
+%                               backbone tracking    
 %   design                      option for phase control        string
-%                               ['optimal'|'conservative']
+%                               ['optimal'|'conservative']  
 %
 % OUTPUT
 %   VARIABLE                    MEANING                         TYPE
-%   gainsPhaseController        gains of phase controller       struct
+%   settings                    structure with settings for     struct
+%                               backbone tracking    
+%   .gainsPhaseController       gains of phase controller       struct
 %       .kp                     proportional gain in 1/s        1x1 double
 %       .ki                     integral gain in 1/s^2          1x1 double
-%   gainsAmplitudeController    gains of amplitude controller   struct     
+%   .gainsAmplitudeController   gains of amplitude controller   struct     
 %       .kp                     proportional gain in V/m        1x1 double
 %       .ki                     integral gain in V/(m s)        1x1 double
+%
+% Note: it is possible to append the gains to the pre-existing settings
+% structure, or output both gain structures separately. 
 %
 % REFERENCES
 % [1] P. Hippold, M. Scheel, L. Renson, M. Krack: Robust and fast backbone
@@ -76,78 +66,84 @@
 % or gpl-3.0.txt.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function [gainsPhaseController, gainsAmplitudeController] = ...
-    controllerDesignBackboneTracker(omLP, linearModalFrequency_Hz, ...
-    linearModalDampingRatio, linearPhiEx, linearPlantFrequency_Hz, ...
-    linearPlantDampingRatio, linearPlantPhiEx, exciterMass_kg, design)
+% function [gainsPhaseController, gainsAmplitudeController] = ...
+%     controllerDesignBackboneTracker(settings, varargin)
+function varargout = controllerDesignBackboneTracker(settings, varargin)
 
     disp('**INFO on theory-driven control design:')
 
     %% Handle user input
 
-    % Check mandatory input (linear modal properties)
-    if numel(linearModalFrequency_Hz)~=1 || linearModalFrequency_Hz<=0
-        error('Expecting positive scalar for linear modal frequency.');
-    end
-    if numel(linearModalDampingRatio)~=1 || linearModalDampingRatio<=0
-        error('Expecting positive scalar for linear modal damping ratio.');
-    end
-    if numel(linearPhiEx)~=1 || ~isreal(linearPhiEx)
-        error(['Expecting real scalar for linear mode shape of target mode ' ...
-            'at drive point.']);
+    % Check mandatory input required for both excitation types
+    % (linear modal plant properties)
+    if ~isreal(settings.linearPlantPhiC)
+        error(['Expecting real linear plant mode shape of ' ...
+            'target mode at control sensor.'])
     end
 
-    % Check optional input (plant properties)
-    if nargin < 5
-        disp('- No plant properties provided. Assuming ideal exciter.');
-        linearPlantFrequency_Hz = linearModalFrequency_Hz;
-        linearPlantDampingRatio = linearModalDampingRatio;
-        linearPlantPhiEx        = linearPhiEx;
-        exciterMass_kg          = 0;
-    else
-        if numel(linearPlantFrequency_Hz)~=1 || linearPlantFrequency_Hz<=0
-            error('Expecting positive scalar for plant linear modal frequency.');
-        end
-        if numel(linearPlantDampingRatio)~=1 || linearPlantDampingRatio<=0
-            error('Expecting positive scalar for plant linear modal damping ratio.');
-        end
-        if numel(linearPlantPhiEx)~=1 || ~isreal(linearPlantPhiEx)
-            error(['Expecting real scalar for linear plant mode shape of ' ...
-                'target mode at drive point.'])
-        end
+    % Check additional input for the selected excitation type and check 
+    % optional input. 
+    switch settings.excitationQuantity
+        case 'force'
+            excitationType = 'force';
+                if ~isreal(settings.linearPlantPhiEx)
+                    error(['Expecting real scalar for linear plant mode shape of ' ...
+                    'target mode at drive point.'])
+                end
+                if ~isreal(settings.linearPhiEx)
+                    error(['Expecting real scalar for linear mode shape of target mode ' ...
+                        'at drive point.']);
+                end
+        case {'displacement', 'velocity', 'acceleration'}
+            excitationType = 'base';
+            if settings.exciterMass_kg <= 0 || settings.SUTMass_kg < 0
+                error('Invalid mass of exciter or SUT provided.')
+            end
+        otherwise
+            error('Excitation quantity unknown.');
     end
 
     % Check optional input (phase control design specifier)
-    if nargin < 9
-        % Use option 'optimal' as default.
-        design = 'optimal';
-        fprintf('- Controller design option is set to optimal. [DEFAULT]\n');
-    else
+    if ~isempty(varargin)
+        design = varargin{1};
         if strcmp(design,'optimal') || strcmp(design,'conservative')
             fprintf('- Controller design option is set to %s.\n',design);
         else
-            error('Innvalid controller design option.');
+            error('Invalid controller design option.');
         end
+    else
+        design = 'optimal';
+        fprintf('- Controller design option is set to optimal. [DEFAULT]\n');
     end
 
     %% Auxiliary parameters
 
     % SUT decay rate (Eq. 30)
-    delta_s = linearModalDampingRatio * linearModalFrequency_Hz * 2*pi;
+    delta_s = settings.linearModalDampingRatio * settings.linearModalFrequency_Hz * 2*pi;
 
-    % Exciter/structure mass ratio (Eq. 16)
-    mu_ex = linearPhiEx^2 * exciterMass_kg;
-    
-    % Plant decay rate (Eq. 31 / Eq. A.5)
-    delta_p = ( linearPlantDampingRatio*linearPlantFrequency_Hz *2*pi )*...
-        (1 + mu_ex);
+    switch excitationType
+        case 'force'
+            % Exciter/structure mass ratio (Eq. 16)
+            mu_ex = settings.linearPhiEx^2 * settings.exciterMass_kg;
+            
+            % Plant decay rate (Eq. 31 / Eq. A.5)
+            delta_p = ( settings.linearPlantDampingRatio*settings.linearPlantFrequency_Hz *2*pi )*...
+                (1 + mu_ex);
+            
+            % Plant constant relevant for amplitude control
+            chi = (1 + mu_ex) / (2*settings.linearModalFrequency_Hz*2*pi*settings.omLP) ...
+                * abs(settings.linearPlantPhiEx * settings.linearPlantPhiC);
+        case 'base'
+            % Plant decay rate (equal to SUT decay rate)
+            delta_p = delta_s;
+            % Plant constant relevant for amplitude control
+            chi = settings.linearPlantPhiC^2*settings.exciterMass_kg / ...
+                (2*(settings.exciterMass_kg+settings.SUTMass_kg)* ...
+                settings.linearModalFrequency_Hz*2*pi*settings.omLP);
+    end
 
     % Dimensionless plant decay rate (Eq. 32)
-    delta_p_bar = delta_p/omLP; 
-    
-    % Plant constant relevant for amplitude control
-    chi = (1 + mu_ex) / (2*linearModalFrequency_Hz*2*pi*omLP) ...
-        * linearPlantPhiEx^2;
+    delta_p_bar = delta_p/settings.omLP;
 
     %% Controller gains
     
@@ -168,12 +164,12 @@ function [gainsPhaseController, gainsAmplitudeController] = ...
 
             % Define maximum phase error as function of imaginary part of 
             % the eigenvalue pair (Eq. C.28).
-            epsilon_max = @(I) 1/omLP * delta_p/delta_s * 2/(lambda_R^2+I.^2) ...
+            epsilon_max = @(I) 1/settings.omLP * delta_p/delta_s * 2/(lambda_R^2+I.^2) ...
                 .* exp(-2*(lambda_R./I).*atan(I/lambda_R));
 
             % Calculate limit value of the maximum phase error for zero 
             % imaginary part (Eq. C.33)
-            epsilon_max_0 = 1/omLP * delta_p/delta_s * ...
+            epsilon_max_0 = 1/settings.omLP * delta_p/delta_s * ...
                 2/lambda_R^2 * exp(-2);
             
             % Case distinction depending on plant decay rate (Eq. C.30):
@@ -208,16 +204,26 @@ function [gainsPhaseController, gainsAmplitudeController] = ...
     end
     
     % --------- controller gains for phase control ------------------------
-    
-    % Dimensionless controller gains (Eq. 41-42)
-    kp_bar_phase = delta_s/delta_p * ...
-        (3*lambda_R^2 + lambda_I_phase^2 - delta_p_bar);
-    ki_bar_phase = delta_s/delta_p * ...
-        (-lambda_R*(lambda_R^2 + lambda_I_phase^2));
-    
-    % Dimensional controller gains (Eq. 33-34)
-    gainsPhaseController.kp = kp_bar_phase * omLP / (1 + mu_ex);
-    gainsPhaseController.ki = ki_bar_phase * omLP^2 / (1 + mu_ex);
+    switch excitationType
+        case 'force'
+            % Dimensionless controller gains (Eq. 41-42)
+            kp_bar_phase = delta_s/delta_p * ...
+                (3*lambda_R^2 + lambda_I_phase^2 - delta_p_bar);
+            ki_bar_phase = delta_s/delta_p * ...
+                (-lambda_R*(lambda_R^2 + lambda_I_phase^2));
+            
+            % Dimensional controller gains (Eq. 33-34)
+            gainsPhaseController.kp = kp_bar_phase * settings.omLP / (1 + mu_ex);
+            gainsPhaseController.ki = ki_bar_phase * settings.omLP^2 / (1 + mu_ex);
+        case 'base'
+            % Dimensionless controller gains
+            kp_bar_phase = (3*lambda_R^2 + lambda_I_phase^2 - delta_p_bar);
+            ki_bar_phase = (-lambda_R*(lambda_R^2 + lambda_I_phase^2));
+
+            % Dimensional controller gains
+            gainsPhaseController.kp = kp_bar_phase * settings.omLP;
+            gainsPhaseController.ki = ki_bar_phase * settings.omLP^2;
+    end
     
     % --------- controller gains for amplitude control --------------------
     
@@ -230,5 +236,20 @@ function [gainsPhaseController, gainsAmplitudeController] = ...
     
     % Dimensional controller gains
     gainsAmplitudeController.kp = kp_bar_amp;
-    gainsAmplitudeController.ki = ki_bar_amp * omLP;
+    gainsAmplitudeController.ki = ki_bar_amp * settings.omLP;
+
+
+
+    %% Mould outputs
+    nOutputs = nargout;
+    if nOutputs == 1
+        settings.gainsAmplitudeController = gainsAmplitudeController;
+        settings.gainsPhaseController = gainsPhaseController;
+        varargout{1} = settings;
+    elseif nOutputs == 2
+        varargout{1} = gainsPhaseController;
+        varargout{2} = gainsAmplitudeController;
+    else
+        error(['Number of outputs exceed expected value.'])
+    end
 end

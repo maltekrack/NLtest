@@ -65,9 +65,21 @@ load('virtualRubBeR.mat','virtualRubber',...
     'linearModalFrequency_Hz','linearModalDampingRatio','linearPhiEx',...
     'responseQuantity');
 
+% Store linear modal properties in the 'settings' structure. Note that n
+% case of ideal exciter behavior, the modal properties are by definiton
+% those of the plant. The response senor used for control (index c) is
+% collocated with the dirve point (index ex).
+settings.linearPlantFrequency_Hz = linearModalFrequency_Hz;
+settings.linearPlantDampingRatio = linearModalDampingRatio;
+settings.linearPlantPhiC = linearPhiEx;
+
 % Adopt responseQuantity for the drive point sensor, which is the only 
 % response sensor in this script.
 settings.responseQuantity = responseQuantity;
+
+% Set excitation quantity to 'force'.
+settings.excitationQuantity = 'force';
+
 %% Specify backbone stepping
 
 % Test type ['steppedVoltage'|'steppedAmplitude']
@@ -104,12 +116,10 @@ settings.omLP = linearModalFrequency_Hz*2*pi / 10;
 % here.
 settings.H = 7;
 %% Check settings (and add any unspecified ones by default values)
-settings = checkSettingsBackboneTracker(settings,...
-    linearModalFrequency_Hz,linearModalDampingRatio,linearPhiEx);
+settings = checkSettingsBackboneTracker(settings);
 %% Select control gains in a theory-driven way
 [settings.gainsPhaseController, settings.gainsAmplitudeController] = ...
-    controllerDesignBackboneTracker(settings.omLP,...
-    linearModalFrequency_Hz,linearModalDampingRatio,linearPhiEx);
+    controllerDesignBackboneTracker(settings);
 % If you want to adjust the control gains, do it here.
 % settings.gainsPhaseController.kp = ...
 % settings.gainsPhaseController.ki = ...
